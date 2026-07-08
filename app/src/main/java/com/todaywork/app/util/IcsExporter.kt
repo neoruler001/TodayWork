@@ -56,7 +56,8 @@ object IcsExporter {
             if (!shift.isWorkDay && shift != ShiftType.ANNUAL && shift != ShiftType.HALF_DAY_AM && shift != ShiftType.HALF_DAY_PM) continue
 
             val uid = "todaywork-${day.date.format(icsDateFormatter)}-${shift.name}@todaywork.app"
-            val summary = "[${shift.shortLabel}] ${shift.label}${if (day.memo.isNotBlank()) " - ${day.memo}" else ""}"
+            val memoTitle = day.memos.firstOrNull()?.title ?: ""
+            val summary = "[${shift.shortLabel}] ${shift.label}${if (memoTitle.isNotBlank()) " - $memoTitle" else ""}"
 
             sb.append("BEGIN:VEVENT\r\n")
             sb.append("UID:$uid\r\n")
@@ -76,8 +77,9 @@ object IcsExporter {
 
             sb.append("SUMMARY:${foldLine(summary)}\r\n")
             sb.append("CATEGORIES:근무\r\n")
-            if (day.memo.isNotBlank()) {
-                sb.append("DESCRIPTION:${foldLine(day.memo)}\r\n")
+            val description = day.memos.joinToString("\n") { it.title }
+            if (description.isNotBlank()) {
+                sb.append("DESCRIPTION:${foldLine(description)}\r\n")
             }
             sb.append("END:VEVENT\r\n")
         }
