@@ -35,6 +35,9 @@ object AppModule {
     @Provides
     fun provideAlarmSettingDao(db: AppDatabase): AlarmSettingDao = db.alarmSettingDao()
 
+    @Provides
+    fun provideMemoDao(db: AppDatabase): MemoDao = db.memoDao()
+
     @Singleton
     @Provides
     fun provideGson(): Gson = Gson()

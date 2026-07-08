@@ -142,6 +142,7 @@ class CalendarWidget : GlanceAppWidget() {
                                 val shift = dayInfo.shiftType
                                 val isToday = dayInfo.date == today
                                 val dateStr = dayInfo.date.toString()
+                                val memos = dayInfo.memos
 
                                 val action = actionStartActivity<WidgetConfirmActivity>(
                                     actionParametersOf(
@@ -164,6 +165,7 @@ class CalendarWidget : GlanceAppWidget() {
                                         .clickable(action),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
+                                    // 날짜
                                     Text(
                                         text = dayInfo.date.dayOfMonth.toString(),
                                         style = TextStyle(
@@ -172,26 +174,25 @@ class CalendarWidget : GlanceAppWidget() {
                                             color = ColorProvider(day = dateColor, night = dateColor)
                                         )
                                     )
+
+                                    // 근무 배지
                                     if (shift != null) {
                                         val shiftColor = Color(shift.colorHex)
                                         val textColor = if (shift.isLightBadge) Color(0xFF212121) else Color.White
                                         if (shift.isWorkDay) {
                                             Box(
                                                 modifier = GlanceModifier
-                                                    .size(24.dp)
+                                                    .size(22.dp)
                                                     .background(shiftColor)
-                                                    .cornerRadius(12.dp),
+                                                    .cornerRadius(11.dp),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
                                                     text = shift.shortLabel,
                                                     style = TextStyle(
-                                                        fontSize = 10.sp,
+                                                        fontSize = 9.sp,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = ColorProvider(
-                                                            day = textColor,
-                                                            night = textColor
-                                                        )
+                                                        color = ColorProvider(day = textColor, night = textColor)
                                                     )
                                                 )
                                             }
@@ -199,13 +200,34 @@ class CalendarWidget : GlanceAppWidget() {
                                             Text(
                                                 text = shift.shortLabel,
                                                 style = TextStyle(
-                                                    fontSize = 11.sp,
+                                                    fontSize = 10.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = ColorProvider(
-                                                        day = shiftColor,
-                                                        night = shiftColor
-                                                    )
+                                                    color = ColorProvider(day = shiftColor, night = shiftColor)
                                                 )
+                                            )
+                                        }
+                                    }
+
+                                    // 첫 번째 메모 바
+                                    if (memos.isNotEmpty()) {
+                                        val memo = memos.first()
+                                        val memoColor = Color(memo.colorHex)
+                                        val memoText = if (memos.size > 1) "${memo.title}+" else memo.title
+                                        Box(
+                                            modifier = GlanceModifier
+                                                .fillMaxWidth()
+                                                .background(memoColor)
+                                                .cornerRadius(2.dp)
+                                                .padding(horizontal = 1.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = memoText,
+                                                style = TextStyle(
+                                                    fontSize = 7.sp,
+                                                    color = ColorProvider(day = Color.White, night = Color.White)
+                                                ),
+                                                maxLines = 1
                                             )
                                         }
                                     }

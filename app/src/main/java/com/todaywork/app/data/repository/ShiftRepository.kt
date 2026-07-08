@@ -5,11 +5,14 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.todaywork.app.data.db.dao.AlarmSettingDao
+import com.todaywork.app.data.db.dao.MemoDao
 import com.todaywork.app.data.db.dao.ShiftPatternDao
 import com.todaywork.app.data.db.dao.WorkRecordDao
+import com.todaywork.app.data.db.entity.MemoEntity
 import com.todaywork.app.data.db.entity.ShiftPatternEntity
 import com.todaywork.app.data.db.entity.WorkRecordEntity
 import com.todaywork.app.data.model.DayInfo
+import com.todaywork.app.data.model.MemoItem
 import com.todaywork.app.data.model.ShiftType
 import com.todaywork.app.util.AlarmScheduler
 import com.todaywork.app.util.HolidayUtil
@@ -26,13 +29,13 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
-
 @Singleton
 class ShiftRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val shiftPatternDao: ShiftPatternDao,
     private val workRecordDao: WorkRecordDao,
     private val alarmSettingDao: AlarmSettingDao,
+    private val memoDao: MemoDao,
     private val alarmScheduler: AlarmScheduler,
     private val gson: Gson
 ) {
@@ -74,10 +77,6 @@ class ShiftRepository @Inject constructor(
         shiftPatternDao.deletePatternById(patternId)
     }
 
-    /**
-     * 패턴 기반으로 ±2년 범위의 근무 기록을 미리 생성
-     * isManual=false 기록만 생성 (수동 수정본은 유지)
-     */
     private suspend fun generateRecordsForPattern(patternId: Long) {
         val pattern = shiftPatternDao.getPatternById(patternId) ?: return
         val cycleType: List<String> = gson.fromJson(
@@ -93,7 +92,6 @@ class ShiftRepository @Inject constructor(
         val records = mutableListOf<WorkRecordEntity>()
         var current = startDate
         while (!current.isAfter(endDate)) {
-            // 이미 수동 수정된 날짜는 건너뜀
             val existing = workRecordDao.getRecordByDate(current.toEpochDay())
             if (existing != null && existing.isManual) {
                 current = current.plusDays(1)
@@ -135,6 +133,9 @@ class ShiftRepository @Inject constructor(
             lastDay.toEpochDay()
         ).associateBy { it.dateEpoch }
 
+        val memosByDate = memoDao.getMemosForRange(firstDay.toEpochDay(), lastDay.toEpochDay())
+            .groupBy { it.dateEpoch }
+
         return (1..firstDay.lengthOfMonth()).map { day ->
             val date = LocalDate.of(year, month, day)
             val record = records[date.toEpochDay()]
@@ -143,6 +144,7 @@ class ShiftRepository @Inject constructor(
             }
             val lunar = LunarUtil.solarToLunar(date)
             val holiday = holidays[date]
+            val memos = memosByDate[date.toEpochDay()]?.map { it.toMemoItem() } ?: emptyList()
 
             DayInfo(
                 date = date,
@@ -150,7 +152,7 @@ class ShiftRepository @Inject constructor(
                 lunarDay = lunar?.toDisplayString() ?: "",
                 isHoliday = holiday != null,
                 holidayName = holiday?.name ?: "",
-                memo = record?.memo ?: "",
+                memos = memos,
                 startTime = record?.let { formatTime(it.startTimeMinutes) } ?: "",
                 endTime = record?.let { formatTime(it.endTimeMinutes) } ?: "",
                 isModified = record?.isManual ?: false
@@ -162,15 +164,14 @@ class ShiftRepository @Inject constructor(
         date: LocalDate,
         shiftType: ShiftType,
         startTimeMinutes: Int,
-        endTimeMinutes: Int,
-        memo: String
+        endTimeMinutes: Int
     ) {
         val record = WorkRecordEntity(
             dateEpoch = date.toEpochDay(),
             shiftTypeName = shiftType.name,
             startTimeMinutes = startTimeMinutes,
             endTimeMinutes = endTimeMinutes,
-            memo = memo,
+            memo = "",
             isManual = true,
             patternId = -1L
         )
@@ -178,6 +179,53 @@ class ShiftRepository @Inject constructor(
         scheduleAlarmsForDate(date, shiftType)
         triggerWidgetUpdate(context)
     }
+
+    // ── 메모 관련 ──────────────────────────────────────────────
+
+    suspend fun addMemo(
+        date: LocalDate,
+        title: String,
+        colorHex: Long,
+        startTimeMinutes: Int,
+        endTimeMinutes: Int,
+        isAllDay: Boolean
+    ): Long {
+        val entity = MemoEntity(
+            dateEpoch = date.toEpochDay(),
+            title = title,
+            colorHex = colorHex,
+            startTimeMinutes = startTimeMinutes,
+            endTimeMinutes = endTimeMinutes,
+            isAllDay = isAllDay
+        )
+        val id = memoDao.insertMemo(entity)
+        triggerWidgetUpdate(context)
+        return id
+    }
+
+    suspend fun updateMemo(memo: MemoItem, date: LocalDate) {
+        val entity = MemoEntity(
+            id = memo.id,
+            dateEpoch = date.toEpochDay(),
+            title = memo.title,
+            colorHex = memo.colorHex,
+            startTimeMinutes = memo.startTimeMinutes,
+            endTimeMinutes = memo.endTimeMinutes,
+            isAllDay = memo.isAllDay
+        )
+        memoDao.updateMemo(entity)
+        triggerWidgetUpdate(context)
+    }
+
+    suspend fun deleteMemo(id: Long) {
+        memoDao.deleteMemoById(id)
+        triggerWidgetUpdate(context)
+    }
+
+    suspend fun getMemosForDate(date: LocalDate): List<MemoItem> =
+        memoDao.getMemosForDate(date.toEpochDay()).map { it.toMemoItem() }
+
+    // ── 패턴 복원 ──────────────────────────────────────────────
 
     suspend fun resetToPattern(date: LocalDate) {
         val pattern = shiftPatternDao.getActivePattern().first() ?: return
@@ -207,9 +255,39 @@ class ShiftRepository @Inject constructor(
         triggerWidgetUpdate(context)
     }
 
-    private fun getHolidays(year: Int): Map<LocalDate, HolidayUtil.Holiday> {
-        return holidayCache.getOrPut(year) { HolidayUtil.getHolidays(year) }
+    suspend fun applyPatternToDateRange(patternId: Long, startDate: LocalDate, endDate: LocalDate) {
+        val pattern = shiftPatternDao.getPatternById(patternId) ?: return
+        val cycleType: List<String> = gson.fromJson(
+            pattern.cyclesJson,
+            object : TypeToken<List<String>>() {}.type
+        )
+        val cycleLength = cycleType.size
+
+        var current = startDate
+        var cycleIndex = 0
+
+        while (!current.isAfter(endDate)) {
+            val shiftTypeName = cycleType[cycleIndex % cycleLength]
+            val shiftType = runCatching { ShiftType.valueOf(shiftTypeName) }.getOrElse { ShiftType.REST }
+
+            val record = WorkRecordEntity(
+                dateEpoch = current.toEpochDay(),
+                shiftTypeName = shiftType.name,
+                startTimeMinutes = shiftType.defaultStartHour * 60 + shiftType.defaultStartMin,
+                endTimeMinutes = shiftType.defaultEndHour * 60 + shiftType.defaultEndMin,
+                memo = "",
+                isManual = true,
+                patternId = patternId
+            )
+            workRecordDao.insertOrUpdate(record)
+
+            current = current.plusDays(1)
+            cycleIndex++
+        }
     }
+
+    private fun getHolidays(year: Int): Map<LocalDate, HolidayUtil.Holiday> =
+        holidayCache.getOrPut(year) { HolidayUtil.getHolidays(year) }
 
     private suspend fun scheduleAlarmsForDate(date: LocalDate, shiftType: ShiftType) {
         val enabled = alarmSettingDao.getEnabledAlarms()
@@ -229,51 +307,19 @@ class ShiftRepository @Inject constructor(
         }
     }
 
-private fun triggerWidgetUpdate(context: Context) {
-    CoroutineScope(Dispatchers.Main).launch {
-        val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(CalendarWidget::class.java)
-        glanceIds.forEach { id ->
-            CalendarWidget().update(context, id) // 이것만으로 위젯 업데이트가 가능합니다.
+    private fun triggerWidgetUpdate(context: Context) {
+        CoroutineScope(Dispatchers.Main).launch {
+            val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(CalendarWidget::class.java)
+            glanceIds.forEach { id ->
+                CalendarWidget().update(context, id)
+            }
         }
     }
-}
 
     private fun formatTime(totalMinutes: Int): String {
         if (totalMinutes == 0) return ""
         val h = totalMinutes / 60
         val m = totalMinutes % 60
         return "%02d:%02d".format(h, m)
-    }
-
-    suspend fun applyPatternToDateRange(patternId: Long, startDate: LocalDate, endDate: LocalDate) {
-        val pattern = shiftPatternDao.getPatternById(patternId) ?: return
-        val cycleType: List<String> = gson.fromJson(
-            pattern.cyclesJson,
-            object : TypeToken<List<String>>() {}.type
-        )
-        val cycleLength = cycleType.size
-        
-        var current = startDate
-        var cycleIndex = 0
-        
-        while (!current.isAfter(endDate)) {
-            val shiftTypeName = cycleType[cycleIndex % cycleLength]
-            val shiftType = runCatching { ShiftType.valueOf(shiftTypeName) }.getOrElse { ShiftType.REST }
-            
-            // 기존 메모를 유지하려면 가져와야 하지만, 패턴 덮어쓰기이므로 초기화
-            val record = WorkRecordEntity(
-                dateEpoch = current.toEpochDay(),
-                shiftTypeName = shiftType.name,
-                startTimeMinutes = shiftType.defaultStartHour * 60 + shiftType.defaultStartMin,
-                endTimeMinutes = shiftType.defaultEndHour * 60 + shiftType.defaultEndMin,
-                memo = "",
-                isManual = true,
-                patternId = patternId
-            )
-            workRecordDao.insertOrUpdate(record)
-            
-            current = current.plusDays(1)
-            cycleIndex++
-        }
     }
 }

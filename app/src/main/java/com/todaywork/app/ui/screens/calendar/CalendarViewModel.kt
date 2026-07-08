@@ -12,12 +12,12 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 data class CalendarUiState(
-    val year: Int           = LocalDate.now().year,
-    val month: Int          = LocalDate.now().monthValue,
-    val days: List<DayInfo> = emptyList(),
+    val year: Int            = LocalDate.now().year,
+    val month: Int           = LocalDate.now().monthValue,
+    val days: List<DayInfo>  = emptyList(),
     val selectedDate: LocalDate? = null,
-    val isLoading: Boolean  = false,
-    val showLunar: Boolean  = true,
+    val isLoading: Boolean   = false,
+    val showLunar: Boolean   = true,
     val showHoliday: Boolean = true,
     val patterns: List<ShiftPatternEntity> = emptyList()
 )
@@ -81,8 +81,7 @@ class CalendarViewModel @Inject constructor(
         startHour: Int,
         startMin: Int,
         endHour: Int,
-        endMin: Int,
-        memo: String
+        endMin: Int
     ) {
         viewModelScope.launch {
             val shiftType = runCatching {
@@ -93,8 +92,7 @@ class CalendarViewModel @Inject constructor(
                 date = date,
                 shiftType = shiftType,
                 startTimeMinutes = startHour * 60 + startMin,
-                endTimeMinutes = endHour * 60 + endMin,
-                memo = memo
+                endTimeMinutes = endHour * 60 + endMin
             )
             loadMonth(_uiState.value.year, _uiState.value.month)
         }
@@ -115,6 +113,50 @@ class CalendarViewModel @Inject constructor(
             } finally {
                 loadMonth(_uiState.value.year, _uiState.value.month)
             }
+        }
+    }
+
+    fun addMemo(
+        date: LocalDate,
+        title: String,
+        colorHex: Long,
+        startTimeMinutes: Int,
+        endTimeMinutes: Int,
+        isAllDay: Boolean
+    ) {
+        viewModelScope.launch {
+            shiftRepo.addMemo(date, title, colorHex, startTimeMinutes, endTimeMinutes, isAllDay)
+            loadMonth(_uiState.value.year, _uiState.value.month)
+        }
+    }
+
+    fun deleteMemo(memoId: Long) {
+        viewModelScope.launch {
+            shiftRepo.deleteMemo(memoId)
+            loadMonth(_uiState.value.year, _uiState.value.month)
+        }
+    }
+
+    fun updateMemo(
+        memoId: Long,
+        date: LocalDate,
+        title: String,
+        colorHex: Long,
+        startTimeMinutes: Int,
+        endTimeMinutes: Int,
+        isAllDay: Boolean
+    ) {
+        viewModelScope.launch {
+            val item = com.todaywork.app.data.model.MemoItem(
+                id = memoId,
+                title = title,
+                colorHex = colorHex,
+                startTimeMinutes = startTimeMinutes,
+                endTimeMinutes = endTimeMinutes,
+                isAllDay = isAllDay
+            )
+            shiftRepo.updateMemo(item, date)
+            loadMonth(_uiState.value.year, _uiState.value.month)
         }
     }
 

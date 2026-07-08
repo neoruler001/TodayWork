@@ -10,9 +10,10 @@ import com.todaywork.app.data.db.entity.*
         ShiftPatternEntity::class,
         WorkRecordEntity::class,
         SalarySettingEntity::class,
-        AlarmSettingEntity::class
+        AlarmSettingEntity::class,
+        MemoEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -20,4 +21,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun workRecordDao(): WorkRecordDao
     abstract fun salarySettingDao(): SalarySettingDao
     abstract fun alarmSettingDao(): AlarmSettingDao
+    abstract fun memoDao(): MemoDao
 }
