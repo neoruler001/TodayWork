@@ -1,0 +1,6 @@
+-keep,allowobfuscation,allowshrinking class com.todaywork.app.ui.screens.calendar.CalendarViewModel
+-keep,allowobfuscation,allowshrinking class com.todaywork.app.ui.screens.calendar.CalendarViewModel
+-keep,allowobfuscation,allowshrinking class com.todaywork.app.ui.screens.salary.SalaryViewModel
+-keep,allowobfuscation,allowshrinking class com.todaywork.app.ui.screens.salary.SalaryViewModel
+-keep,allowobfuscation,allowshrinking class com.todaywork.app.ui.screens.schedule.ScheduleViewModel
+-keep,allowobfuscation,allowshrinking class com.todaywork.app.ui.screens.schedule.ScheduleViewModel

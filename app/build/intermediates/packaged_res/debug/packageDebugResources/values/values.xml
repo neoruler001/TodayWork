@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">오늘근무</string>
+    <string name="notification_channel_desc">교대 근무 시작 전 알람</string>
+    <string name="notification_channel_name">근무 알람</string>
+    <style name="Theme.TodayWork" parent="android:Theme.Material.Light.NoActionBar"/>
+</resources>
