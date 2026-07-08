@@ -1,7 +1,6 @@
 package com.todaywork.app.data.repository
 
 import android.content.Context
-import androidx.glance.appwidget.updateAppWidgetState
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -234,7 +233,7 @@ private fun triggerWidgetUpdate(context: Context) {
     CoroutineScope(Dispatchers.Main).launch {
         val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(CalendarWidget::class.java)
         glanceIds.forEach { id ->
-            CalendarWidget().update(context, id)
+            CalendarWidget().update(context, id) // 이것만으로 위젯 업데이트가 가능합니다.
         }
     }
 }
