@@ -264,6 +264,9 @@ class ShiftRepository @Inject constructor(
         val cycleLength = cycleType.size
         val patternStartDate = LocalDate.ofEpochDay(pattern.startDateEpoch)
 
+        // Clear all auto-generated records for this pattern so range-apply doesn't leave stale global records
+        workRecordDao.deletePatternGeneratedRecords(patternId)
+
         var current = startDate
         while (!current.isAfter(endDate)) {
             val daysDiff = (current.toEpochDay() - patternStartDate.toEpochDay()).toInt()

@@ -71,9 +71,9 @@ class CalendarWidget : GlanceAppWidget() {
                         if (todayShift.isWorkDay) {
                             Box(
                                 modifier = GlanceModifier
-                                    .size(32.dp)
+                                    .size(36.dp)
                                     .background(shiftColor)
-                                    .cornerRadius(16.dp),
+                                    .cornerRadius(18.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -81,7 +81,7 @@ class CalendarWidget : GlanceAppWidget() {
                                     style = TextStyle(
                                         color = ColorProvider(day = textColor, night = textColor),
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp
+                                        fontSize = 15.sp
                                     )
                                 )
                             }
@@ -91,7 +91,7 @@ class CalendarWidget : GlanceAppWidget() {
                                 style = TextStyle(
                                     color = ColorProvider(day = shiftColor, night = shiftColor),
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
+                                    fontSize = 16.sp
                                 )
                             )
                         }
@@ -169,7 +169,7 @@ class CalendarWidget : GlanceAppWidget() {
                                     Text(
                                         text = dayInfo.date.dayOfMonth.toString(),
                                         style = TextStyle(
-                                            fontSize = 12.sp,
+                                            fontSize = 14.sp,
                                             fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                                             color = ColorProvider(day = dateColor, night = dateColor)
                                         )
@@ -182,15 +182,15 @@ class CalendarWidget : GlanceAppWidget() {
                                         if (shift.isWorkDay) {
                                             Box(
                                                 modifier = GlanceModifier
-                                                    .size(22.dp)
+                                                    .size(26.dp)
                                                     .background(shiftColor)
-                                                    .cornerRadius(11.dp),
+                                                    .cornerRadius(13.dp),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
                                                     text = shift.shortLabel,
                                                     style = TextStyle(
-                                                        fontSize = 9.sp,
+                                                        fontSize = 11.sp,
                                                         fontWeight = FontWeight.Bold,
                                                         color = ColorProvider(day = textColor, night = textColor)
                                                     )
@@ -200,7 +200,7 @@ class CalendarWidget : GlanceAppWidget() {
                                             Text(
                                                 text = shift.shortLabel,
                                                 style = TextStyle(
-                                                    fontSize = 10.sp,
+                                                    fontSize = 12.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = ColorProvider(day = shiftColor, night = shiftColor)
                                                 )
@@ -224,7 +224,7 @@ class CalendarWidget : GlanceAppWidget() {
                                             Text(
                                                 text = memoText,
                                                 style = TextStyle(
-                                                    fontSize = 7.sp,
+                                                    fontSize = 9.sp,
                                                     color = ColorProvider(day = Color.White, night = Color.White)
                                                 ),
                                                 maxLines = 1

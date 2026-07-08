@@ -94,6 +94,12 @@ class CalendarViewModel @Inject constructor(
                 startTimeMinutes = startHour * 60 + startMin,
                 endTimeMinutes = endHour * 60 + endMin
             )
+            if (shiftType == com.todaywork.app.data.model.ShiftType.HEALTH_OFF) {
+                val existingMemos = shiftRepo.getMemosForDate(date)
+                if (existingMemos.none { it.title == "보건" }) {
+                    shiftRepo.addMemo(date, "보건", 0xFF26C6DAL, 0, 0, true)
+                }
+            }
             loadMonth(_uiState.value.year, _uiState.value.month)
         }
     }
