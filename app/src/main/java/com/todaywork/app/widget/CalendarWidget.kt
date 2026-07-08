@@ -3,6 +3,7 @@ package com.todaywork.app.widget
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.glance.*
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
@@ -10,6 +11,7 @@ import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.provideContent
+import androidx.glance.color.ColorProvider // 필수 임포트
 import androidx.glance.layout.*
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
@@ -21,8 +23,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import java.time.LocalDate
-import androidx.compose.ui.unit.sp
-import androidx.glance.color.ColorProvider
 
 class CalendarWidget : GlanceAppWidget() {
 
@@ -50,7 +50,7 @@ class CalendarWidget : GlanceAppWidget() {
                     .background(Color(0xFFF9FBF7))
                     .padding(8.dp)
             ) {
-                // ── 헤더: 년월 + 오늘 근무 ──────────────────────
+                // ── 헤더 ──────────────────────────────────────
                 Row(
                     modifier = GlanceModifier.fillMaxWidth().padding(bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -74,7 +74,7 @@ class CalendarWidget : GlanceAppWidget() {
                             Text(
                                 text = "오늘 ${todayShift.shortLabel}",
                                 style = TextStyle(
-                                    color = androidx.glance.color.ColorProvider(Color.White),
+                                    color = ColorProvider(day = Color.White, night = Color.White),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp
                                 )
@@ -87,19 +87,19 @@ class CalendarWidget : GlanceAppWidget() {
                 val weekDays = listOf("일", "월", "화", "수", "목", "금", "토")
                 Row(modifier = GlanceModifier.fillMaxWidth().padding(bottom = 2.dp)) {
                     weekDays.forEachIndexed { idx, d ->
+                        // 색상 로직 분리
+                        val dayColor = when (idx) {
+                            0 -> Color(0xFFC62828)
+                            6 -> Color(0xFF1565C0)
+                            else -> Color(0xFF757575)
+                        }
                         Text(
                             text = d,
                             modifier = GlanceModifier.defaultWeight(),
                             style = TextStyle(
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = androidx.glance.color.ColorProvider(
-                                    when (idx) {
-                                        0    -> Color(0xFFC62828)
-                                        6    -> Color(0xFF1565C0)
-                                        else -> Color(0xFF757575)
-                                    }
-                                )
+                                color = ColorProvider(day = dayColor, night = dayColor)
                             )
                         )
                     }
@@ -125,22 +125,18 @@ class CalendarWidget : GlanceAppWidget() {
                                 val dateStr = dayInfo.date.toString()
 
                                 val action = actionStartActivity<WidgetConfirmActivity>(
-                                    actionParametersOf(
-                                        ActionParameters.Key<String>("selected_date") to dateStr
-                                    )
+                                    actionParametersOf(ActionParameters.Key<String>("selected_date") to dateStr)
                                 )
 
                                 val dateColor = when {
-                                    isToday                             -> Color(0xFF1976D2)
-                                    c == 0 || dayInfo.isHoliday         -> Color(0xFFC62828)
-                                    c == 6                              -> Color(0xFF1565C0)
-                                    else                                -> Color(0xFF1A1C19)
+                                    isToday -> Color(0xFF1976D2)
+                                    c == 0 || dayInfo.isHoliday -> Color(0xFFC62828)
+                                    c == 6 -> Color(0xFF1565C0)
+                                    else -> Color(0xFF1A1C19)
                                 }
 
                                 Column(
-                                    modifier = GlanceModifier
-                                        .defaultWeight()
-                                        .clickable(action),
+                                    modifier = GlanceModifier.defaultWeight().clickable(action),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
@@ -148,7 +144,7 @@ class CalendarWidget : GlanceAppWidget() {
                                         style = TextStyle(
                                             fontSize = 11.sp,
                                             fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                                            color = androidx.glance.color.ColorProvider(dateColor)
+                                            color = ColorProvider(day = dateColor, night = dateColor)
                                         )
                                     )
                                     if (shift != null) {
@@ -164,7 +160,7 @@ class CalendarWidget : GlanceAppWidget() {
                                                 style = TextStyle(
                                                     fontSize = 9.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = androidx.glance.color.ColorProvider(Color.White)
+                                                    color = ColorProvider(day = Color.White, night = Color.White)
                                                 )
                                             )
                                         }
