@@ -2,6 +2,7 @@ package com.todaywork.app.ui.screens.calendar
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.todaywork.app.data.datastore.AppPreferences
 import com.todaywork.app.data.db.entity.ShiftPatternEntity
 import com.todaywork.app.data.model.DayInfo
 import com.todaywork.app.data.repository.ShiftRepository
@@ -24,7 +25,8 @@ data class CalendarUiState(
 
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
-    private val shiftRepo: ShiftRepository
+    private val shiftRepo: ShiftRepository,
+    private val prefs: AppPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalendarUiState())
@@ -35,6 +37,16 @@ class CalendarViewModel @Inject constructor(
         viewModelScope.launch {
             shiftRepo.getAllPatterns().collect { patterns ->
                 _uiState.update { it.copy(patterns = patterns) }
+            }
+        }
+        viewModelScope.launch {
+            combine(
+                prefs.showLunar,
+                prefs.showHoliday
+            ) { lunar, holiday ->
+                lunar to holiday
+            }.collect { (lunar, holiday) ->
+                _uiState.update { it.copy(showLunar = lunar, showHoliday = holiday) }
             }
         }
     }

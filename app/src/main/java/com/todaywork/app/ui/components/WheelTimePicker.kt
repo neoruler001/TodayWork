@@ -109,13 +109,13 @@ private fun WheelNumberPicker(
     val virtualList = List(items.size * multiplier) { index -> items[index % items.size] }
     val initialIndex = (items.size * (multiplier / 2)) + items.indexOf(initialValue)
 
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex - 1)
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val snapFlingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
     // 선택된 항목 트래킹
     LaunchedEffect(listState) {
         snapshotFlow { listState.firstVisibleItemIndex }
-            .map { index -> virtualList.getOrNull(index + 1) ?: initialValue }
+            .map { index -> virtualList.getOrNull(index) ?: initialValue }
             .distinctUntilChanged()
             .collect { value ->
                 onValueChange(value)
@@ -148,7 +148,7 @@ private fun WheelNumberPicker(
         ) {
             items(virtualList.size) { index ->
                 val item = virtualList[index]
-                val isSelected = listState.firstVisibleItemIndex + 1 == index
+                val isSelected = listState.firstVisibleItemIndex == index
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

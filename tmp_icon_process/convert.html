@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>SVG to PNG Converter</title>
+  <!-- 구글 폰트에서 Noto Sans KR 로드 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #1e1e24;
+      color: #ffffff;
+      padding: 30px;
+      text-align: center;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .preview-box {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    canvas {
+      border: 1px solid #444;
+      background-color: #111;
+      border-radius: 8px;
+    }
+    #status {
+      font-size: 1.2rem;
+      padding: 15px;
+      background-color: #2a2b36;
+      border-radius: 8px;
+      display: inline-block;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>앱 아이콘 PNG 변환 및 저장기</h1>
+    <p>브라우저 Canvas를 통해 고해상도 벡터 아이콘을 각 mipmap 크기별 PNG로 빌드합니다.</p>
+    
+    <div class="preview-box">
+      <div>
+        <h3>일반 아이콘 프리뷰</h3>
+        <canvas id="canvas-normal" width="512" height="512"></canvas>
+      </div>
+      <div>
+        <h3>라운드 아이콘 프리뷰</h3>
+        <canvas id="canvas-round" width="512" height="512"></canvas>
+      </div>
+    </div>
+    
+    <div id="status">준비 중... 폰트 로딩 대기...</div>
+  </div>
+
+  <script>
+    const sizes = [
+      { name: 'mdpi', size: 48 },
+      { name: 'hdpi', size: 72 },
+      { name: 'xhdpi', size: 96 },
+      { name: 'xxhdpi', size: 144 },
+      { name: 'xxxhdpi', size: 192 }
+    ];
+
+    const serverUrl = 'http://localhost:3456/save';
+
+    async function run() {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = '폰트 로딩 확인 중...';
+      
+      // 구글 Noto Sans KR 폰트가 완전히 로딩되기를 기다림
+      await document.fonts.ready;
+      statusEl.textContent = '폰트 로드 완료. 이미지 변환 작업 시작...';
+
+      // 1. 일반 SVG 로드 및 텍스트 렌더링
+      const normalSvgText = await fetch('/icon.svg').then(r => r.text());
+      // 2. 라운드 SVG 로드
+      const roundSvgText = await fetch('/icon_round.svg').then(r => r.text());
+
+      // 텍스트를 SVG에서 분리하여 Canvas에 직접 고화질 렌더링하는 헬퍼 함수
+      function drawIconToCanvas(canvas, svgText, size) {
+        return new Promise((resolve) => {
+          const ctx = canvas.getContext('2d');
+          canvas.width = size;
+          canvas.height = size;
+          ctx.clearRect(0, 0, size, size);
+
+          // SVG 이미지 생성
+          const img = new Image();
+          // SVG 내부 텍스트 태그가 깨지는 현상(웹폰트 미동작)을 방지하기 위해, SVG 내 텍스트 엘리먼트를 제거한 뒤 Canvas에 글자를 올리는 기법 적용
+          // XML 파싱을 통해 텍스트 제거한 순수 배경 SVG 추출
+          const parser = new DOMParser();
+          const svgDoc = parser.parseFromString(svgText, 'image/svg+xml');
+          const textNodes = svgDoc.querySelectorAll('text');
+          textNodes.forEach(node => node.remove()); // SVG 내의 텍스트 노드 제거
+
+          const serializer = new XMLSerializer();
+          const cleanSvgText = serializer.serializeToString(svgDoc);
+          const svgBlob = new Blob([cleanSvgText], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(svgBlob);
+
+          img.onload = function() {
+            // 1) SVG 배경 그림 (스케일 조절하여 캔버스에 꽉 채움)
+            ctx.drawImage(img, 0, 0, size, size);
+            URL.revokeObjectURL(url);
+
+            // 2) 그 위에 캔버스 다이렉트 텍스트 렌더링 (폰트 깨짐 없음)
+            const scale = size / 512;
+            ctx.fillStyle = '#202F3D';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // "마님" 렌더링
+            ctx.font = `bold ${Math.round(76 * scale)}px 'Noto Sans KR', sans-serif`;
+            ctx.fillText('마님', 256 * scale, 232 * scale);
+            
+            // "일정" 렌더링
+            ctx.font = `bold ${76 * scale}px 'Noto Sans KR', sans-serif`;
+            ctx.fillText('일정', 256 * scale, 324 * scale);
+
+            resolve();
+          };
+          img.src = url;
+        });
+      }
+
+      // Preview 렌더링
+      await drawIconToCanvas(document.getElementById('canvas-normal'), normalSvgText, 512);
+      await drawIconToCanvas(document.getElementById('canvas-round'), roundSvgText, 512);
+
+      statusEl.textContent = '크기별 이미지 빌딩 및 전송 중...';
+
+      // 크기별 파일 저장 루프
+      for (const item of sizes) {
+        // 일반 아이콘 저장
+        const canvasNormal = document.createElement('canvas');
+        await drawIconToCanvas(canvasNormal, normalSvgText, item.size);
+        const dataUrlNormal = canvasNormal.toDataURL('image/png');
+        
+        await sendToServer(`app/src/main/res/mipmap-${item.name}/ic_launcher.png`, dataUrlNormal);
+
+        // 라운드 아이콘 저장
+        const canvasRound = document.createElement('canvas');
+        await drawIconToCanvas(canvasRound, roundSvgText, item.size);
+        const dataUrlRound = canvasRound.toDataURL('image/png');
+
+        await sendToServer(`app/src/main/res/mipmap-${item.name}/ic_launcher_round.png`, dataUrlRound);
+      }
+
+      statusEl.textContent = '🎉 모든 앱 아이콘 리소스 변환 및 적용이 완료되었습니다!';
+      console.log('Done!');
+    }
+
+    async function sendToServer(filename, base64) {
+      try {
+        const response = await fetch(serverUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ filename, base64 })
+        });
+        const resData = await response.json();
+        console.log(`Saved: ${filename}`, resData);
+      } catch (err) {
+        console.error(`Error saving ${filename}:`, err);
+      }
+    }
+
+    // 약간의 딜레이를 주어 페이지 및 폰트 로드 확보
+    window.addEventListener('load', () => {
+      setTimeout(run, 1000);
+    });
+  </script>
+</body>
+</html>

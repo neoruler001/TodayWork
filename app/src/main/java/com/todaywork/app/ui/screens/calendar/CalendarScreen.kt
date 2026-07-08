@@ -65,6 +65,7 @@ fun CalendarScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showDaySheet by remember { mutableStateOf(false) }
     var showApplyPatternDialog by remember { mutableStateOf(false) }
+    var calSwipeDelta by remember { mutableFloatStateOf(0f) }
 
     // Keep last valid DayInfo so exit animation works after clearSelection()
     var stableDayInfo by remember { mutableStateOf<DayInfo?>(null) }
@@ -112,7 +113,28 @@ fun CalendarScreen(
                         viewModel.selectDate(date)
                         showDaySheet = true
                     },
-                    modifier = Modifier.fillMaxWidth().weight(1f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    when {
+                                        calSwipeDelta < -80f -> {
+                                            showDaySheet = false
+                                            viewModel.goToNextMonth()
+                                        }
+                                        calSwipeDelta > 80f -> {
+                                            showDaySheet = false
+                                            viewModel.goToPreviousMonth()
+                                        }
+                                    }
+                                    calSwipeDelta = 0f
+                                },
+                                onDragCancel = { calSwipeDelta = 0f },
+                                onHorizontalDrag = { _, delta -> calSwipeDelta += delta }
+                            )
+                        }
                 )
             }
         }
@@ -434,7 +456,8 @@ private fun CalendarCell(
                 ) {
                     Text(
                         text = displayText,
-                        fontSize = 7.sp,
+                        fontSize = 9.sp,
+                        lineHeight = 9.sp,
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis

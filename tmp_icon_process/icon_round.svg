@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- 외곽 완벽한 원형 클립 패스 (ic_launcher_round용) -->
+    <clipPath id="circle-clip">
+      <circle cx="256" cy="256" r="256" />
+    </clipPath>
+    <!-- 웹폰트 Noto Sans KR 로드 -->
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&amp;display=swap');
+      .title-text {
+        font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+        font-weight: 700;
+        fill: #202F3D;
+        font-size: 76px;
+        letter-spacing: -2px;
+      }
+    </style>
+  </defs>
+
+  <!-- 전체 영역을 클립패스로 마스킹 (ic_launcher_round용) -->
+  <g clip-path="url(#circle-clip)">
+    <!-- 1. 상단 주황색 배경 -->
+    <rect width="512" height="512" fill="#FF5A46" />
+
+    <!-- 2. 하단 흰색 본문 카드 영역 -->
+    <path d="M 0,512 
+             L 512,512 
+             L 512,155 
+             L 448,155 
+             Q 416,155 416,123 
+             L 416,67 
+             Q 416,35 384,35 
+             L 128,35 
+             Q 96,35 96,67 
+             L 96,123 
+             Q 96,155 64,155 
+             L 0,155 
+             Z" 
+          fill="#FFFFFF" />
+
+    <!-- 3. 중앙 텍스트 (마님 일정) -->
+    <text x="256" y="232" class="title-text" text-anchor="middle">마님</text>
+    <text x="256" y="324" class="title-text" text-anchor="middle">일정</text>
+
+    <!-- 4. 데코 오브젝트들 -->
+    <!-- 우측 녹색 원 -->
+    <circle cx="405" cy="285" r="46" fill="#35D692" />
+
+    <!-- 좌하단 주황색 원 -->
+    <circle cx="145" cy="420" r="46" fill="#FF5A46" />
+
+    <!-- 우하단 하늘색 알약 (캡슐) -->
+    <rect x="256" y="374" width="192" height="92" rx="46" ry="46" fill="#4FA2FF" />
+  </g>
+</svg>

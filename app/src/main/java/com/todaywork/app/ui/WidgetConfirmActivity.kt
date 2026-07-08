@@ -13,7 +13,7 @@ class WidgetConfirmActivity : ComponentActivity() {
         val dateStr = intent.getStringExtra("selected_date")
         
         AlertDialog.Builder(this)
-            .setTitle("오늘 근무")
+            .setTitle("마님 일정")
             .setMessage("앱의 달력으로 이동하시겠습니까?")
             .setPositiveButton("확인") { _, _ ->
                 val mainIntent = Intent(this, MainActivity::class.java).apply {

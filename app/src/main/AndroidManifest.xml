@@ -29,6 +29,7 @@
         <activity
             android:name=".ui.WidgetConfirmActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:taskAffinity=""
             android:exported="true" />
 
         <!-- 위젯 수신자 -->
