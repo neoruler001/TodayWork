@@ -1,8 +1,18 @@
 package com.todaywork.app.ui.screens.calendar
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,66 +66,81 @@ fun CalendarScreen(
     var showDaySheet by remember { mutableStateOf(false) }
     var showApplyPatternDialog by remember { mutableStateOf(false) }
 
-    LaunchedEffect(uiState.year, uiState.month) {
-        showDaySheet = false
+    // Keep last valid DayInfo so exit animation works after clearSelection()
+    var stableDayInfo by remember { mutableStateOf<DayInfo?>(null) }
+    val currentDayInfo = remember(uiState.selectedDate, uiState.days) {
+        uiState.selectedDate?.let { d -> uiState.days.find { it.date == d } }
     }
+    if (currentDayInfo != null) stableDayInfo = currentDayInfo
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        CalendarHeader(
-            year = uiState.year,
-            month = uiState.month,
-            onPrev = viewModel::goToPreviousMonth,
-            onNext = viewModel::goToNextMonth,
-            onToday = viewModel::goToToday,
-            onAddPattern = { showApplyPatternDialog = true }
-        )
-        WeekDayHeader()
-
-        if (uiState.isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        } else {
-            CalendarGrid(
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ── Main calendar ─────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            CalendarHeader(
                 year = uiState.year,
                 month = uiState.month,
-                days = uiState.days,
-                selectedDate = uiState.selectedDate,
-                showLunar = uiState.showLunar,
-                showHoliday = uiState.showHoliday,
-                onDateClick = { date ->
-                    viewModel.selectDate(date)
-                    showDaySheet = true
-                },
-                modifier = Modifier.fillMaxWidth().weight(1f)
-            )
-        }
-    }
-
-    if (showDaySheet) {
-        val dayInfo = viewModel.getSelectedDayInfo()
-        if (dayInfo != null) {
-            DayDetailBottomSheet(
-                dayInfo = dayInfo,
-                onSaveShift = { shiftName, sh, sm, eh, em ->
-                    viewModel.saveWorkRecord(dayInfo.date, shiftName, sh, sm, eh, em)
-                },
-                onResetShift = { viewModel.resetDateToPattern(dayInfo.date) },
-                onAddMemo = { title, colorHex, startMin, endMin, isAllDay ->
-                    viewModel.addMemo(dayInfo.date, title, colorHex, startMin, endMin, isAllDay)
-                },
-                onDeleteMemo = viewModel::deleteMemo,
-                onDismiss = {
+                onPrev = {
                     showDaySheet = false
-                    viewModel.clearSelection()
-                }
+                    viewModel.goToPreviousMonth()
+                },
+                onNext = {
+                    showDaySheet = false
+                    viewModel.goToNextMonth()
+                },
+                onToday = viewModel::goToToday,
+                onAddPattern = { showApplyPatternDialog = true }
             )
-        } else {
-            showDaySheet = false
+            WeekDayHeader()
+
+            if (uiState.isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                CalendarGrid(
+                    year = uiState.year,
+                    month = uiState.month,
+                    days = uiState.days,
+                    selectedDate = uiState.selectedDate,
+                    showLunar = uiState.showLunar,
+                    showHoliday = uiState.showHoliday,
+                    onDateClick = { date ->
+                        viewModel.selectDate(date)
+                        showDaySheet = true
+                    },
+                    modifier = Modifier.fillMaxWidth().weight(1f)
+                )
+            }
+        }
+
+        // ── Full-screen day detail (slides in from right) ────
+        AnimatedVisibility(
+            visible = showDaySheet,
+            enter = slideInHorizontally(animationSpec = tween(280)) { it },
+            exit = slideOutHorizontally(animationSpec = tween(280)) { it },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            stableDayInfo?.let { info ->
+                DayDetailFullScreen(
+                    initialDayInfo = info,
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    onSaveShift = { date, shiftName, sh, sm, eh, em ->
+                        viewModel.saveWorkRecord(date, shiftName, sh, sm, eh, em)
+                    },
+                    onResetShift = viewModel::resetDateToPattern,
+                    onAddMemo = viewModel::addMemo,
+                    onDeleteMemo = viewModel::deleteMemo,
+                    onDismiss = {
+                        showDaySheet = false
+                        viewModel.clearSelection()
+                    }
+                )
+            }
         }
     }
 
@@ -303,7 +329,6 @@ private fun CalendarCell(
                 .padding(horizontal = 2.dp, vertical = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 날짜 번호 + 인디케이터 점
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
@@ -337,7 +362,6 @@ private fun CalendarCell(
                 }
             }
 
-            // 음력
             if (showLunar && dayInfo?.lunarDay?.isNotBlank() == true) {
                 Text(
                     text = dayInfo.lunarDay,
@@ -350,7 +374,6 @@ private fun CalendarCell(
 
             Spacer(Modifier.weight(1f))
 
-            // 근무 배지
             if (shift != null) {
                 if (shift.isWorkDay) {
                     Box(
@@ -381,7 +404,6 @@ private fun CalendarCell(
 
             Spacer(Modifier.weight(1f))
 
-            // 공휴일명
             if (showHoliday && isHoliday && holidayName.isNotBlank()) {
                 Text(
                     text = holidayName,
@@ -397,7 +419,6 @@ private fun CalendarCell(
                 )
             }
 
-            // 메모 바 (최대 2개, 3개 이상이면 마지막 옆 "more...")
             val hasMore = memos.size > 2
             val visibleMemos = memos.take(2)
             visibleMemos.forEachIndexed { idx, memo ->
@@ -424,131 +445,181 @@ private fun CalendarCell(
     }
 }
 
-// ── 날짜 상세 바텀시트 (3탭) ──────────────────────────────────
+// ── 풀스크린 날짜 상세 (오른쪽 슬라이드) ─────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DayDetailBottomSheet(
-    dayInfo: DayInfo,
-    onSaveShift: (shiftName: String, sh: Int, sm: Int, eh: Int, em: Int) -> Unit,
-    onResetShift: () -> Unit,
-    onAddMemo: (title: String, colorHex: Long, startMin: Int, endMin: Int, isAllDay: Boolean) -> Unit,
+private fun DayDetailFullScreen(
+    initialDayInfo: DayInfo,
+    uiState: CalendarUiState,
+    viewModel: CalendarViewModel,
+    onSaveShift: (LocalDate, String, Int, Int, Int, Int) -> Unit,
+    onResetShift: (LocalDate) -> Unit,
+    onAddMemo: (LocalDate, String, Long, Int, Int, Boolean) -> Unit,
     onDeleteMemo: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var currentDate by remember { mutableStateOf(initialDayInfo.date) }
     var selectedTab by remember { mutableIntStateOf(0) }
     var showWorkEditDialog by remember { mutableStateOf(false) }
     var showMemoAddDialog by remember { mutableStateOf(false) }
+    var swipeDelta by remember { mutableFloatStateOf(0f) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
+    // Load month when navigating to a different month
+    LaunchedEffect(currentDate) {
+        viewModel.loadMonthForDate(currentDate)
+        viewModel.selectDate(currentDate)
+    }
+
+    val dayInfo = remember(currentDate, uiState.days) {
+        uiState.days.find { it.date == currentDate }
+            ?: DayInfo(date = currentDate, shiftType = null)
+    }
+
+    BackHandler { onDismiss() }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // 날짜 헤더
-            Column(
+        Column(modifier = Modifier.fillMaxSize()) {
+
+            // ── Navigation header (swipeable) ────────────────
+            Row(
                 modifier = Modifier
-                    .padding(horizontal = 20.dp)
-                    .padding(top = 4.dp, bottom = 12.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val dayOfWeekName = dayInfo.date.dayOfWeek
-                        .getDisplayName(TextStyle.SHORT, Locale.KOREAN)
-                    Text(
-                        text = "${dayInfo.date.monthValue}월 ${dayInfo.date.dayOfMonth}일 ${dayOfWeekName}요일",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = when (dayInfo.date.dayOfWeek) {
-                            DayOfWeek.SUNDAY -> if (dayInfo.isHoliday) WeekendSun else WeekendSun
-                            DayOfWeek.SATURDAY -> WeekendSat
-                            else -> if (dayInfo.isHoliday) WeekendSun else MaterialTheme.colorScheme.onBackground
-                        }
-                    )
-                    if (dayInfo.lunarDay.isNotBlank()) {
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "음 ${dayInfo.lunarDay}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = LunarText
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, end = 4.dp, top = 4.dp)
+                    .pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                when {
+                                    swipeDelta < -100f -> currentDate = currentDate.plusDays(1)
+                                    swipeDelta > 100f -> currentDate = currentDate.minusDays(1)
+                                }
+                                swipeDelta = 0f
+                            },
+                            onDragCancel = { swipeDelta = 0f },
+                            onHorizontalDrag = { _, delta -> swipeDelta += delta }
                         )
+                    },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, "닫기",
+                        tint = MaterialTheme.colorScheme.onBackground)
+                }
+                IconButton(onClick = { currentDate = currentDate.minusDays(1) }) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "이전 날",
+                        tint = MaterialTheme.colorScheme.onBackground)
+                }
+
+                // Animated date display
+                AnimatedContent(
+                    targetState = currentDate,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            (slideInHorizontally { it } + fadeIn()) togetherWith
+                                    (slideOutHorizontally { -it } + fadeOut())
+                        } else {
+                            (slideInHorizontally { -it } + fadeIn()) togetherWith
+                                    (slideOutHorizontally { it } + fadeOut())
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = "dateHeader"
+                ) { date ->
+                    val dowStr = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)
+                    val isHol = dayInfo.isHoliday && dayInfo.date == date
+                    val dayColor = when (date.dayOfWeek) {
+                        DayOfWeek.SUNDAY -> WeekendSun
+                        DayOfWeek.SATURDAY -> WeekendSat
+                        else -> if (isHol) WeekendSun else MaterialTheme.colorScheme.onBackground
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "${date.monthValue}월 ${date.dayOfMonth}일 ${dowStr}요일",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = dayColor,
+                            textAlign = TextAlign.Center
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (dayInfo.lunarDay.isNotBlank() && dayInfo.date == date) {
+                                Text("음 ${dayInfo.lunarDay}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = LunarText)
+                            }
+                            if (dayInfo.isHoliday && dayInfo.date == date && dayInfo.holidayName.isNotBlank()) {
+                                Text(dayInfo.holidayName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = WeekendSun)
+                            }
+                        }
                     }
                 }
-                if (dayInfo.isHoliday) {
-                    Text(
-                        dayInfo.holidayName,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = WeekendSun
-                    )
+
+                IconButton(onClick = { currentDate = currentDate.plusDays(1) }) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "다음 날",
+                        tint = MaterialTheme.colorScheme.onBackground)
                 }
+            }
 
-                Spacer(Modifier.height(10.dp))
-
-                // 근무 배지 + 시간
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    val shift = dayInfo.shiftType
-                    if (shift != null) {
-                        if (shift.isWorkDay) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(shift.toColor()),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    shift.shortLabel,
-                                    fontSize = 20.sp,
-                                    color = shift.badgeTextColor(),
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        } else {
-                            Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
-                                Text(
-                                    shift.shortLabel,
-                                    fontSize = 26.sp,
-                                    color = shift.toColor(),
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                        Column {
-                            Text(shift.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            if (dayInfo.startTime.isNotBlank()) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Schedule, null,
-                                        modifier = Modifier.size(13.dp),
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                    )
-                                    Spacer(Modifier.width(3.dp))
-                                    Text(
-                                        "${dayInfo.startTime} - ${dayInfo.endTime}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
-                                }
-                            }
-                            if (dayInfo.isModified) {
-                                Text("(수정됨)", fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
-                            }
+            // ── Shift info row ────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                val shift = dayInfo.shiftType
+                if (shift != null) {
+                    if (shift.isWorkDay) {
+                        Box(
+                            modifier = Modifier.size(44.dp).clip(CircleShape).background(shift.toColor()),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(shift.shortLabel, fontSize = 20.sp,
+                                color = shift.badgeTextColor(), fontWeight = FontWeight.Bold)
                         }
                     } else {
-                        Text(
-                            "근무 없음",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-                        )
+                        Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                            Text(shift.shortLabel, fontSize = 26.sp,
+                                color = shift.toColor(), fontWeight = FontWeight.Bold)
+                        }
                     }
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(shift.label,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold)
+                            if (dayInfo.isModified) {
+                                Spacer(Modifier.width(6.dp))
+                                Text("(수정됨)", fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.tertiary)
+                            }
+                        }
+                        if (dayInfo.startTime.isNotBlank()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Schedule, null,
+                                    modifier = Modifier.size(13.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                                Spacer(Modifier.width(3.dp))
+                                Text("${dayInfo.startTime} - ${dayInfo.endTime}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                            }
+                        }
+                    }
+                } else {
+                    Text("근무 없음",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f))
                 }
             }
 
             HorizontalDivider()
 
-            // 탭
+            // ── Tabs ──────────────────────────────────────────
             TabRow(selectedTabIndex = selectedTab) {
                 listOf("메모", "근무", "급여").forEachIndexed { index, title ->
                     Tab(
@@ -559,19 +630,21 @@ private fun DayDetailBottomSheet(
                 }
             }
 
-            // 탭 콘텐츠
+            // ── Tab content (fills remaining space) ──────────
             when (selectedTab) {
                 0 -> MemoTabContent(
                     memos = dayInfo.memos,
                     onAddClick = { showMemoAddDialog = true },
-                    onDelete = onDeleteMemo
+                    onDelete = onDeleteMemo,
+                    modifier = Modifier.fillMaxWidth().weight(1f)
                 )
                 1 -> WorkTabContent(
                     dayInfo = dayInfo,
                     onEditClick = { showWorkEditDialog = true },
-                    onReset = onResetShift
+                    onReset = { onResetShift(currentDate) },
+                    modifier = Modifier.fillMaxWidth().weight(1f)
                 )
-                2 -> SalaryTabContent()
+                2 -> SalaryTabContent(modifier = Modifier.fillMaxWidth().weight(1f))
             }
         }
     }
@@ -580,7 +653,7 @@ private fun DayDetailBottomSheet(
         WorkEditDialog(
             dayInfo = dayInfo,
             onSave = { shiftName, sh, sm, eh, em ->
-                onSaveShift(shiftName, sh, sm, eh, em)
+                onSaveShift(currentDate, shiftName, sh, sm, eh, em)
                 showWorkEditDialog = false
             },
             onDismiss = { showWorkEditDialog = false }
@@ -590,7 +663,7 @@ private fun DayDetailBottomSheet(
     if (showMemoAddDialog) {
         MemoEditDialog(
             onSave = { title, colorHex, startMin, endMin, isAllDay ->
-                onAddMemo(title, colorHex, startMin, endMin, isAllDay)
+                onAddMemo(currentDate, title, colorHex, startMin, endMin, isAllDay)
                 showMemoAddDialog = false
             },
             onDismiss = { showMemoAddDialog = false }
@@ -603,13 +676,11 @@ private fun DayDetailBottomSheet(
 private fun MemoTabContent(
     memos: List<MemoItem>,
     onAddClick: () -> Unit,
-    onDelete: (Long) -> Unit
+    onDelete: (Long) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 150.dp, max = 380.dp)
-            .padding(horizontal = 16.dp),
+        modifier = modifier.padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
@@ -667,19 +738,13 @@ private fun MemoCard(memo: MemoItem, onDelete: () -> Unit) {
             )
         }
         Box(modifier = Modifier.align(Alignment.TopEnd)) {
-            IconButton(
-                onClick = { showMenu = true },
-                modifier = Modifier.size(28.dp)
-            ) {
+            IconButton(onClick = { showMenu = true }, modifier = Modifier.size(28.dp)) {
                 Icon(Icons.Default.MoreVert, null, tint = Color.White, modifier = Modifier.size(18.dp))
             }
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(
                     text = { Text("삭제") },
-                    onClick = {
-                        showMenu = false
-                        onDelete()
-                    },
+                    onClick = { showMenu = false; onDelete() },
                     leadingIcon = {
                         Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
                     }
@@ -694,11 +759,11 @@ private fun MemoCard(memo: MemoItem, onDelete: () -> Unit) {
 private fun WorkTabContent(
     dayInfo: DayInfo,
     onEditClick: () -> Unit,
-    onReset: () -> Unit
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .padding(horizontal = 16.dp)
             .padding(top = 16.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -720,11 +785,9 @@ private fun WorkTabContent(
 
 // ── 급여 탭 (placeholder) ─────────────────────────────────────
 @Composable
-private fun SalaryTabContent() {
+private fun SalaryTabContent(modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(150.dp),
+        modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -757,7 +820,6 @@ private fun MemoEditDialog(
         title = { Text("새 메모") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // 제목 (선택된 색상 배경)
                 TextField(
                     value = title,
                     onValueChange = { title = it },
@@ -777,7 +839,6 @@ private fun MemoEditDialog(
                         .clip(RoundedCornerShape(8.dp))
                 )
 
-                // 색상 선택
                 Text("색상", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -797,7 +858,6 @@ private fun MemoEditDialog(
                     }
                 }
 
-                // 하루 종일 토글
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -807,26 +867,23 @@ private fun MemoEditDialog(
                     Switch(checked = isAllDay, onCheckedChange = { isAllDay = it })
                 }
 
-                // 시간 입력 (하루종일 아닌 경우)
                 if (!isAllDay) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TimeInputField(
-                            label = "시작",
-                            hour = startHour,
-                            minute = startMin,
-                            onHourChange = { startHour = it },
-                            onMinuteChange = { startMin = it },
-                            modifier = Modifier.weight(1f)
-                        )
-                        TimeInputField(
-                            label = "종료",
-                            hour = endHour,
-                            minute = endMin,
-                            onHourChange = { endHour = it },
-                            onMinuteChange = { endMin = it },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    com.todaywork.app.ui.components.WheelTimePicker(
+                        initialHour = startHour,
+                        initialMinute = startMin,
+                        onTimeSelected = { h, m -> startHour = h; startMin = m },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("종료 시간 설정",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    com.todaywork.app.ui.components.WheelTimePicker(
+                        initialHour = endHour,
+                        initialMinute = endMin,
+                        onTimeSelected = { h, m -> endHour = h; endMin = m },
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    )
                 }
             }
         },
@@ -841,9 +898,7 @@ private fun MemoEditDialog(
                 }
             ) { Text("저장") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("취소") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
     )
 }
 
@@ -864,9 +919,7 @@ private fun WorkEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text("${dayInfo.date.monthValue}월 ${dayInfo.date.dayOfMonth}일 근무 수정")
-        },
+        title = { Text("${dayInfo.date.monthValue}월 ${dayInfo.date.dayOfMonth}일 근무 수정") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ExposedDropdownMenuBox(
@@ -893,9 +946,7 @@ private fun WorkEditDialog(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(
-                                            Modifier.size(12.dp).clip(CircleShape).background(type.toColor())
-                                        )
+                                        Box(Modifier.size(12.dp).clip(CircleShape).background(type.toColor()))
                                         Text(type.label)
                                     }
                                 },
@@ -913,63 +964,34 @@ private fun WorkEditDialog(
                 }
 
                 if (selectedType.isWorkDay) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TimeInputField(
-                            label = "시작",
-                            hour = startHour,
-                            minute = startMin,
-                            onHourChange = { startHour = it },
-                            onMinuteChange = { startMin = it },
-                            modifier = Modifier.weight(1f)
-                        )
-                        TimeInputField(
-                            label = "종료",
-                            hour = endHour,
-                            minute = endMin,
-                            onHourChange = { endHour = it },
-                            onMinuteChange = { endMin = it },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                    Text("시작 시간 설정",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    com.todaywork.app.ui.components.WheelTimePicker(
+                        initialHour = startHour,
+                        initialMinute = startMin,
+                        onTimeSelected = { h, m -> startHour = h; startMin = m },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("종료 시간 설정",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    com.todaywork.app.ui.components.WheelTimePicker(
+                        initialHour = endHour,
+                        initialMinute = endMin,
+                        onTimeSelected = { h, m -> endHour = h; endMin = m },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         },
         confirmButton = {
-            Button(onClick = {
-                onSave(selectedType.name, startHour, startMin, endHour, endMin)
-            }) {
+            Button(onClick = { onSave(selectedType.name, startHour, startMin, endHour, endMin) }) {
                 Text("저장")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("취소") }
-        }
-    )
-}
-
-@Composable
-private fun TimeInputField(
-    label: String,
-    hour: Int,
-    minute: Int,
-    onHourChange: (Int) -> Unit,
-    onMinuteChange: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = "%02d:%02d".format(hour, minute),
-        onValueChange = { raw ->
-            val digits = raw.filter { it.isDigit() }
-            if (digits.length >= 4) {
-                val h = digits.substring(0, 2).toIntOrNull() ?: 0
-                val m = digits.substring(2, 4).toIntOrNull() ?: 0
-                if (h in 0..23) onHourChange(h)
-                if (m in 0..59) onMinuteChange(m)
-            }
-        },
-        label = { Text(label) },
-        modifier = modifier,
-        singleLine = true
+        dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
     )
 }
 
@@ -985,14 +1007,11 @@ private fun ApplyPatternDialog(
     var patternExpanded by remember { mutableStateOf(false) }
 
     val today = LocalDate.now()
-    var startYear by remember { mutableStateOf(today.year.toString()) }
-    var startMonth by remember { mutableStateOf(today.monthValue.toString().padStart(2, '0')) }
-    var startDay by remember { mutableStateOf(today.dayOfMonth.toString().padStart(2, '0')) }
+    var startDate by remember { mutableStateOf(today) }
+    var endDate by remember { mutableStateOf(today.plusMonths(1)) }
 
-    val nextMonth = today.plusMonths(1)
-    var endYear by remember { mutableStateOf(nextMonth.year.toString()) }
-    var endMonth by remember { mutableStateOf(nextMonth.monthValue.toString().padStart(2, '0')) }
-    var endDay by remember { mutableStateOf(nextMonth.dayOfMonth.toString().padStart(2, '0')) }
+    var showStartPicker by remember { mutableStateOf(false) }
+    var showEndPicker by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1032,18 +1051,24 @@ private fun ApplyPatternDialog(
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-                    Text("시작일 (YYYY-MM-DD)", style = MaterialTheme.typography.labelMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = startYear, onValueChange = { startYear = it }, modifier = Modifier.weight(1.5f), singleLine = true)
-                        OutlinedTextField(value = startMonth, onValueChange = { startMonth = it }, modifier = Modifier.weight(1f), singleLine = true)
-                        OutlinedTextField(value = startDay, onValueChange = { startDay = it }, modifier = Modifier.weight(1f), singleLine = true)
+                    Text("적용 구간 설정", style = MaterialTheme.typography.titleSmall)
+
+                    OutlinedButton(
+                        onClick = { showStartPicker = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("시작일: ${startDate.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))}")
                     }
 
-                    Text("종료일 (YYYY-MM-DD)", style = MaterialTheme.typography.labelMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = endYear, onValueChange = { endYear = it }, modifier = Modifier.weight(1.5f), singleLine = true)
-                        OutlinedTextField(value = endMonth, onValueChange = { endMonth = it }, modifier = Modifier.weight(1f), singleLine = true)
-                        OutlinedTextField(value = endDay, onValueChange = { endDay = it }, modifier = Modifier.weight(1f), singleLine = true)
+                    OutlinedButton(
+                        onClick = { showEndPicker = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("종료일: ${endDate.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))}")
                     }
                 }
             }
@@ -1052,23 +1077,55 @@ private fun ApplyPatternDialog(
             Button(
                 onClick = {
                     val pId = selectedPattern?.id ?: return@Button
-                    val sDate = runCatching {
-                        LocalDate.of(startYear.toInt(), startMonth.toInt(), startDay.toInt())
-                    }.getOrNull()
-                    val eDate = runCatching {
-                        LocalDate.of(endYear.toInt(), endMonth.toInt(), endDay.toInt())
-                    }.getOrNull()
-                    if (sDate != null && eDate != null && !sDate.isAfter(eDate)) {
-                        onApply(pId, sDate, eDate)
-                    }
+                    onApply(pId, startDate, endDate)
                 },
-                enabled = selectedPattern != null
+                enabled = selectedPattern != null && !startDate.isAfter(endDate)
             ) {
                 Text("적용")
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("취소") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
     )
+
+    if (showStartPicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = startDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showStartPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { ms ->
+                        startDate = java.time.Instant.ofEpochMilli(ms)
+                            .atZone(java.time.ZoneId.of("UTC")).toLocalDate()
+                    }
+                    showStartPicker = false
+                }) { Text("선택") }
+            },
+            dismissButton = { TextButton(onClick = { showStartPicker = false }) { Text("취소") } }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showEndPicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = endDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showEndPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { ms ->
+                        endDate = java.time.Instant.ofEpochMilli(ms)
+                            .atZone(java.time.ZoneId.of("UTC")).toLocalDate()
+                    }
+                    showEndPicker = false
+                }) { Text("선택") }
+            },
+            dismissButton = { TextButton(onClick = { showEndPicker = false }) { Text("취소") } }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }

@@ -262,15 +262,18 @@ class ShiftRepository @Inject constructor(
             object : TypeToken<List<String>>() {}.type
         )
         val cycleLength = cycleType.size
+        val patternStartDate = LocalDate.ofEpochDay(pattern.startDateEpoch)
 
         var current = startDate
-        var cycleIndex = 0
-
         while (!current.isAfter(endDate)) {
-            val shiftTypeName = cycleType[cycleIndex % cycleLength]
-            val shiftType = runCatching { ShiftType.valueOf(shiftTypeName) }.getOrElse { ShiftType.REST }
+            val daysDiff = (current.toEpochDay() - patternStartDate.toEpochDay()).toInt()
+            val cycleIndex = ((daysDiff % cycleLength + cycleLength) % cycleLength +
+                    pattern.cycleOffsetDay) % cycleLength
+            val shiftType = runCatching {
+                ShiftType.valueOf(cycleType[cycleIndex])
+            }.getOrElse { ShiftType.REST }
 
-            val record = WorkRecordEntity(
+            workRecordDao.insertOrUpdate(WorkRecordEntity(
                 dateEpoch = current.toEpochDay(),
                 shiftTypeName = shiftType.name,
                 startTimeMinutes = shiftType.defaultStartHour * 60 + shiftType.defaultStartMin,
@@ -278,11 +281,8 @@ class ShiftRepository @Inject constructor(
                 memo = "",
                 isManual = true,
                 patternId = patternId
-            )
-            workRecordDao.insertOrUpdate(record)
-
+            ))
             current = current.plusDays(1)
-            cycleIndex++
         }
     }
 

@@ -172,6 +172,12 @@ class CalendarViewModel @Inject constructor(
         }
     }
 
+    fun loadMonthForDate(date: LocalDate) {
+        if (date.year == _uiState.value.year && date.monthValue == _uiState.value.month) return
+        _uiState.update { it.copy(year = date.year, month = date.monthValue) }
+        loadMonth(date.year, date.monthValue)
+    }
+
     fun getSelectedDayInfo(): DayInfo? {
         val selected = _uiState.value.selectedDate ?: return null
         return _uiState.value.days.find { it.date == selected }

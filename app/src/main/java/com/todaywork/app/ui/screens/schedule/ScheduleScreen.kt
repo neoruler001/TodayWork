@@ -16,12 +16,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.todaywork.app.data.db.entity.ShiftPatternEntity
 import com.todaywork.app.data.model.ShiftType
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleScreen(
     viewModel: ScheduleViewModel = hiltViewModel()
@@ -365,16 +367,37 @@ private fun AddPatternDialog(
                 }
 
                 // 시작일
-                OutlinedTextField(
-                    value = startDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-                    onValueChange = { raw ->
-                        runCatching { LocalDate.parse(raw, DateTimeFormatter.ofPattern("yyyy-MM-dd")) }
-                            .onSuccess { startDate = it }
-                    },
-                    label = { Text("패턴 시작일 (yyyy-MM-dd)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                var showDatePicker by remember { mutableStateOf(false) }
+                OutlinedButton(
+                    onClick = { showDatePicker = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("시작일: ${startDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))}")
+                }
+
+                if (showDatePicker) {
+                    val datePickerState = rememberDatePickerState(
+                        initialSelectedDateMillis = startDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    )
+                    DatePickerDialog(
+                        onDismissRequest = { showDatePicker = false },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                datePickerState.selectedDateMillis?.let { ms ->
+                                    startDate = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                                }
+                                showDatePicker = false
+                            }) { Text("선택") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDatePicker = false }) { Text("취소") }
+                        }
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
 
                 // 오프셋
                 OutlinedTextField(
