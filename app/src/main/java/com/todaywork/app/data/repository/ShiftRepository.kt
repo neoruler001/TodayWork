@@ -1,6 +1,8 @@
 package com.todaywork.app.data.repository
 
 import android.content.Context
+import androidx.glance.appwidget.updateAppWidgetState
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.todaywork.app.data.db.dao.AlarmSettingDao
@@ -229,18 +231,12 @@ class ShiftRepository @Inject constructor(
         }
     }
 
-   // ShiftRepository 내부
-private suspend fun triggerWidgetUpdate(context: Context) {
-    // GlanceAppWidgetManager를 통해 해당 위젯 클래스의 인스턴스들을 모두 업데이트
-    GlanceAppWidgetManager(context).updateAppWidgetState(
-        GlanceAppWidgetManager(context).getGlanceIds(CalendarWidget::class.java)
-    ) { }
-    CalendarWidget().updateAll(context) // 만약 이 코드를 꼭 써야 한다면 
-    // 위와 같이 import가 제대로 되어 있는지 확인하거나, 아래 방식을 권장합니다.
-    
-    val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(CalendarWidget::class.java)
-    glanceIds.forEach { id ->
-        CalendarWidget().update(context, id)
+private fun triggerWidgetUpdate(context: Context) {
+    CoroutineScope(Dispatchers.Main).launch {
+        val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(CalendarWidget::class.java)
+        glanceIds.forEach { id ->
+            CalendarWidget().update(context, id)
+        }
     }
 }
 

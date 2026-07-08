@@ -21,6 +21,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import java.time.LocalDate
+import androidx.compose.ui.unit.sp
+import androidx.glance.color.ColorProvider
 
 class CalendarWidget : GlanceAppWidget() {
 
@@ -58,7 +60,7 @@ class CalendarWidget : GlanceAppWidget() {
                         style = TextStyle(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = androidx.glance.color.ColorProvider(Color(0xFF1A1C19))
+                            color = ColorProvider(day = Color(0xFF1A1C19), night = Color(0xFFE2E3DE))
                         ),
                         modifier = GlanceModifier.defaultWeight()
                     )
