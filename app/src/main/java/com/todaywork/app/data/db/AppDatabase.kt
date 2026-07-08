@@ -13,7 +13,7 @@ import com.todaywork.app.data.db.entity.*
         AlarmSettingEntity::class
     ],
     version = 1,
-    exportSchema = true
+    exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun shiftPatternDao(): ShiftPatternDao

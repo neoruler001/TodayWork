@@ -63,4 +63,5 @@ dependencies {
     implementation(libs.gson)
     debugImplementation(libs.androidx.ui.tooling)
     implementation(libs.glance.appwidget)
+    implementation("androidx.compose.material3:material3-window-size-class:1.3.1") // 버전은 프로젝트 환경에 맞춰 조정
 }

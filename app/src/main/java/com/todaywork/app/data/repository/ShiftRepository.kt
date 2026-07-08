@@ -24,6 +24,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.updateAll
 
 @Singleton
 class ShiftRepository @Inject constructor(
@@ -227,11 +229,20 @@ class ShiftRepository @Inject constructor(
         }
     }
 
-    private fun triggerWidgetUpdate() {
-        CoroutineScope(Dispatchers.Main).launch {
-            CalendarWidget().updateAll(context)
-        }
+   // ShiftRepository 내부
+private suspend fun triggerWidgetUpdate(context: Context) {
+    // GlanceAppWidgetManager를 통해 해당 위젯 클래스의 인스턴스들을 모두 업데이트
+    GlanceAppWidgetManager(context).updateAppWidgetState(
+        GlanceAppWidgetManager(context).getGlanceIds(CalendarWidget::class.java)
+    ) { }
+    CalendarWidget().updateAll(context) // 만약 이 코드를 꼭 써야 한다면 
+    // 위와 같이 import가 제대로 되어 있는지 확인하거나, 아래 방식을 권장합니다.
+    
+    val glanceIds = GlanceAppWidgetManager(context).getGlanceIds(CalendarWidget::class.java)
+    glanceIds.forEach { id ->
+        CalendarWidget().update(context, id)
     }
+}
 
     private fun formatTime(totalMinutes: Int): String {
         if (totalMinutes == 0) return ""
