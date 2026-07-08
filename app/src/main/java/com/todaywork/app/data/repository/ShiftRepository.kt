@@ -26,8 +26,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
-import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.updateAll
+
 
 @Singleton
 class ShiftRepository @Inject constructor(
@@ -68,7 +67,7 @@ class ShiftRepository @Inject constructor(
         shiftPatternDao.activatePattern(patternId)
         generateRecordsForPattern(patternId)
         scheduleAlarmsForUpcomingDays()
-        triggerWidgetUpdate()
+        triggerWidgetUpdate(context)
     }
 
     suspend fun deletePattern(patternId: Long) {
@@ -178,7 +177,7 @@ class ShiftRepository @Inject constructor(
         )
         workRecordDao.insertOrUpdate(record)
         scheduleAlarmsForDate(date, shiftType)
-        triggerWidgetUpdate()
+        triggerWidgetUpdate(context)
     }
 
     suspend fun resetToPattern(date: LocalDate) {
@@ -206,7 +205,7 @@ class ShiftRepository @Inject constructor(
         workRecordDao.insertOrUpdate(record)
         val resetShiftType = runCatching { ShiftType.valueOf(record.shiftTypeName) }.getOrNull()
         if (resetShiftType != null) scheduleAlarmsForDate(date, resetShiftType)
-        triggerWidgetUpdate()
+        triggerWidgetUpdate(context)
     }
 
     private fun getHolidays(year: Int): Map<LocalDate, HolidayUtil.Holiday> {
