@@ -79,7 +79,7 @@ fun AppNavigation(windowSizeClass: WindowSizeClass, initialDateStr: String? = nu
                     }
                 }
             }
-        } { innerPadding ->
+        ) { innerPadding ->
             AppNavHost(
                 navController = navController,
                 initialDateStr = initialDateStr,
