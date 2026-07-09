@@ -3,7 +3,9 @@ package com.todaywork.app.ui.screens.schedule
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -13,9 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.todaywork.app.data.db.entity.ShiftPatternEntity
 import com.todaywork.app.data.model.ShiftType
@@ -279,144 +284,218 @@ fun ShiftCycleRow(cycles: List<ShiftType>, modifier: Modifier = Modifier) {
 }
 
 // ── 패턴 추가 다이얼로그 ──────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddPatternDialog(
     presets: List<Pair<String, List<ShiftType>>>,
     onConfirm: (name: String, cycles: List<ShiftType>, startDate: LocalDate, offset: Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var patternName  by remember { mutableStateOf("") }
-    var cycles       by remember { mutableStateOf<List<ShiftType>>(emptyList()) }
-    var startDate    by remember { mutableStateOf(LocalDate.now()) }
-    var offsetDay    by remember { mutableIntStateOf(0) }
-    var showPresets  by remember { mutableStateOf(true) }
-    var typeExpanded by remember { mutableStateOf(false) }
+    val defaultCycles = listOf(
+        ShiftType.DAY, ShiftType.DAY, ShiftType.REST, ShiftType.REST,
+        ShiftType.NIGHT, ShiftType.NIGHT, ShiftType.DAY, ShiftType.DAY
+    )
+    var patternName by remember { mutableStateOf("주주휴휴야야주주") }
+    var cycles      by remember { mutableStateOf<List<ShiftType>>(defaultCycles) }
+    var startDate   by remember { mutableStateOf(LocalDate.now()) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("근무 패턴 추가") },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.verticalScroll(rememberScrollState())
-            ) {
-                // 패턴 이름
-                OutlinedTextField(
-                    value = patternName,
-                    onValueChange = { patternName = it },
-                    label = { Text("패턴 이름") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                // 프리셋
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("빠른 선택:", style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = { showPresets = !showPresets }) {
-                        Text(if (showPresets) "접기" else "펼치기", fontSize = 12.sp)
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // 상단 바
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.ArrowBack, "뒤로가기")
+                    }
+                    Text(
+                        text = "근무 패턴 추가",
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    TextButton(
+                        onClick = { if (patternName.isNotBlank() && cycles.isNotEmpty()) onConfirm(patternName, cycles, startDate, 0) },
+                        enabled = patternName.isNotBlank() && cycles.isNotEmpty()
+                    ) {
+                        Text("저장", fontWeight = FontWeight.Bold)
                     }
                 }
-                if (showPresets) {
-                    presets.forEach { (name, preset) ->
-                        OutlinedButton(
-                            onClick = {
-                                patternName = name
-                                cycles = preset
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-                            shape = RoundedCornerShape(0.dp)
-                        ) {
-                            Text(name, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                            ShiftCycleRow(cycles = preset)
+
+                HorizontalDivider()
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // 패턴 이름
+                    OutlinedTextField(
+                        value = patternName,
+                        onValueChange = { patternName = it },
+                        label = { Text("패턴 이름") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    // 현재 구성 카드
+                    Text(
+                        "현재 구성",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            if (cycles.isEmpty()) {
+                                Text(
+                                    "근무 타입을 추가하세요",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                )
+                            } else {
+                                ShiftCycleRow(cycles = cycles)
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "${cycles.size}일 사이클",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                )
+                            }
                         }
                     }
-                }
 
-                // 현재 사이클 표시
-                if (cycles.isNotEmpty()) {
-                    Text("사이클 구성:", style = MaterialTheme.typography.bodySmall)
-                    ShiftCycleRow(cycles = cycles)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ShiftType.entries.take(5).forEach { type ->
+                    // 근무 추가 버튼
+                    Text(
+                        "근무 추가",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            ShiftType.entries.take(6).forEach { type ->
+                                OutlinedButton(
+                                    onClick = { cycles = cycles + type },
+                                    contentPadding = PaddingValues(4.dp),
+                                    modifier = Modifier.size(40.dp),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) { Text(type.shortLabel, fontSize = 10.sp) }
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            ShiftType.entries.drop(6).forEach { type ->
+                                OutlinedButton(
+                                    onClick = { cycles = cycles + type },
+                                    contentPadding = PaddingValues(4.dp),
+                                    modifier = Modifier.size(40.dp),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) { Text(type.shortLabel, fontSize = 10.sp) }
+                            }
                             OutlinedButton(
-                                onClick = { cycles = cycles + type },
+                                onClick = { if (cycles.isNotEmpty()) cycles = cycles.dropLast(1) },
                                 contentPadding = PaddingValues(4.dp),
                                 modifier = Modifier.size(40.dp),
                                 shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(type.shortLabel, fontSize = 10.sp)
-                            }
-                        }
-                        TextButton(onClick = { if (cycles.isNotEmpty()) cycles = cycles.dropLast(1) }) {
-                            Text("↩", fontSize = 16.sp)
-                        }
-                    }
-                } else {
-                    Text("근무 타입을 눌러 사이클을 구성하세요:", style = MaterialTheme.typography.bodySmall)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        ShiftType.entries.forEach { type ->
+                            ) { Text("↩", fontSize = 14.sp) }
                             OutlinedButton(
-                                onClick = { cycles = cycles + type },
+                                onClick = { cycles = emptyList() },
                                 contentPadding = PaddingValues(4.dp),
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(40.dp),
+                                shape = RoundedCornerShape(4.dp)
+                            ) { Text("✕", fontSize = 12.sp) }
+                        }
+                    }
+
+                    // 빠른 선택
+                    Text(
+                        "빠른 선택",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        presets.forEach { (name, preset) ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { patternName = name; cycles = preset },
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                                shape = RoundedCornerShape(4.dp)
                             ) {
-                                Text(type.shortLabel, fontSize = 9.sp)
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = name,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    ShiftCycleRow(cycles = preset)
+                                }
                             }
                         }
                     }
-                }
 
-                // 시작일
-                var showDatePicker by remember { mutableStateOf(false) }
-                OutlinedButton(
-                    onClick = { showDatePicker = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("시작일: ${startDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))}")
-                }
-
-                if (showDatePicker) {
-                    val datePickerState = rememberDatePickerState(
-                        initialSelectedDateMillis = startDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    // 시작일
+                    Text(
+                        "시작일",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    DatePickerDialog(
-                        onDismissRequest = { showDatePicker = false },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                datePickerState.selectedDateMillis?.let { ms ->
-                                    startDate = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                                }
-                                showDatePicker = false
-                            }) { Text("선택") }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showDatePicker = false }) { Text("취소") }
-                        }
+                    OutlinedButton(
+                        onClick = { showDatePicker = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(4.dp)
                     ) {
-                        DatePicker(state = datePickerState)
+                        Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(startDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")))
                     }
-                }
 
-                // 오프셋
-                OutlinedTextField(
-                    value = offsetDay.toString(),
-                    onValueChange = { raw -> raw.toIntOrNull()?.let { offsetDay = it } },
-                    label = { Text("사이클 오프셋 (0부터 시작)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                    Spacer(Modifier.height(16.dp))
+                }
             }
-        },
-        confirmButton = {
-            Button(onClick = {
-                onConfirm(patternName, cycles, startDate, offsetDay)
-            }) { Text("추가") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("취소") }
         }
-    )
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = startDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { ms ->
+                        startDate = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) { Text("선택") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("취소") } }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }

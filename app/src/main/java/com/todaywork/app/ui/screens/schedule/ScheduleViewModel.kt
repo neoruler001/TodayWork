@@ -94,7 +94,6 @@ class ScheduleViewModel @Inject constructor(
 
     /** 사전 정의 교대 패턴 프리셋 */
     val presets: List<Pair<String, List<ShiftType>>> = listOf(
-        "주주휴휴야야주주" to listOf(ShiftType.DAY, ShiftType.DAY, ShiftType.REST, ShiftType.REST, ShiftType.NIGHT, ShiftType.NIGHT, ShiftType.DAY, ShiftType.DAY),
         "주야휴휴"     to listOf(ShiftType.DAY,  ShiftType.NIGHT, ShiftType.REST, ShiftType.REST),
         "주야비휴"     to listOf(ShiftType.DAY,  ShiftType.NIGHT, ShiftType.OFF,  ShiftType.REST),
         "주주야야휴휴" to listOf(ShiftType.DAY,  ShiftType.DAY,   ShiftType.NIGHT, ShiftType.NIGHT, ShiftType.REST, ShiftType.REST),
