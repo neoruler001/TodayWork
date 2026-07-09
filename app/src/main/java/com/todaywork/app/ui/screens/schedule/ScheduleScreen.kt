@@ -293,9 +293,9 @@ private fun AddPatternDialog(
 ) {
     val defaultCycles = listOf(
         ShiftType.DAY, ShiftType.DAY, ShiftType.REST, ShiftType.REST,
-        ShiftType.NIGHT, ShiftType.NIGHT, ShiftType.DAY, ShiftType.DAY
+        ShiftType.NIGHT, ShiftType.NIGHT, ShiftType.REST, ShiftType.REST
     )
-    var patternName by remember { mutableStateOf("주주휴휴야야주주") }
+    var patternName by remember { mutableStateOf("주주휴휴야야휴휴") }
     var cycles      by remember { mutableStateOf<List<ShiftType>>(defaultCycles) }
     var startDate   by remember { mutableStateOf(LocalDate.now()) }
     var showDatePicker by remember { mutableStateOf(false) }

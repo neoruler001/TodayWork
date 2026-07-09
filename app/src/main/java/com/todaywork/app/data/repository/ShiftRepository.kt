@@ -333,16 +333,17 @@ class ShiftRepository @Inject constructor(
             object : TypeToken<List<String>>() {}.type
         )
         val cycleLength = cycleType.size
-        val patternStartDate = LocalDate.ofEpochDay(pattern.startDateEpoch)
 
         // Clear all auto-generated records for this pattern so range-apply doesn't leave stale global records
         workRecordDao.deletePatternGeneratedRecords(patternId)
 
         var current = startDate
         while (!current.isAfter(endDate)) {
-            val daysDiff = (current.toEpochDay() - patternStartDate.toEpochDay()).toInt()
-            val cycleIndex = ((daysDiff % cycleLength + cycleLength) % cycleLength +
-                    pattern.cycleOffsetDay) % cycleLength
+            // 사용자가 선택한 startDate를 항상 패턴의 첫 날(인덱스 0)로 취급합니다.
+            // patternStartDate 기준으로 계산하면 startDate가 어느 사이클 위치인지에 따라
+            // 패턴이 시작일부터 올바르게 적용되지 않는 버그가 발생합니다.
+            val daysDiff = (current.toEpochDay() - startDate.toEpochDay()).toInt()
+            val cycleIndex = ((daysDiff % cycleLength + cycleLength) % cycleLength)
             val shiftType = runCatching {
                 ShiftType.valueOf(cycleType[cycleIndex])
             }.getOrElse { ShiftType.REST }

@@ -1571,7 +1571,7 @@ private fun ApplyPatternDialog(
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { ms ->
                         startDate = java.time.Instant.ofEpochMilli(ms)
-                            .atZone(java.time.ZoneId.of("UTC")).toLocalDate()
+                            .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
                     }
                     showStartPicker = false
                 }) { Text("선택") }
@@ -1592,7 +1592,7 @@ private fun ApplyPatternDialog(
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { ms ->
                         endDate = java.time.Instant.ofEpochMilli(ms)
-                            .atZone(java.time.ZoneId.of("UTC")).toLocalDate()
+                            .atZone(java.time.ZoneId.systemDefault()).toLocalDate()
                     }
                     showEndPicker = false
                 }) { Text("선택") }
