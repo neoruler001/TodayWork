@@ -1233,42 +1233,6 @@ private fun MemoEditDialog(
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
-                HorizontalDivider(color = Color(0xFFEEEEEE))
-                Spacer(Modifier.height(16.dp))
-
-                // 사용자 색상 타이틀
-                Text(
-                    text = "사용자 색상 (길게 누르면 편집)",
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                    fontSize = 14.sp,
-                    color = Color(0xFF757575)
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                // 사용자 색상 (+) 추가 버튼
-                Row(
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFF5F5F5))
-                            .border(1.dp, Color.LightGray, CircleShape)
-                            .clickable { /* 사용자 색상 다이얼로그 연동 가능 */ },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.Add,
-                            contentDescription = null,
-                            tint = Color(0xFF757575)
-                        )
-                    }
-                }
-
                 Spacer(Modifier.height(16.dp))
 
                 // 닫기 버튼
