@@ -12,6 +12,7 @@ import com.todaywork.app.TodayWorkApp
 import com.todaywork.app.data.db.dao.AlarmSettingDao
 import com.todaywork.app.data.db.dao.WorkRecordDao
 import com.todaywork.app.data.model.ShiftType
+import com.todaywork.app.data.repository.ShiftRepository
 import com.todaywork.app.util.AlarmScheduler
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.EntryPoint
@@ -34,6 +35,7 @@ class AlarmReceiver : BroadcastReceiver() {
         fun alarmScheduler(): AlarmScheduler
         fun alarmSettingDao(): AlarmSettingDao
         fun workRecordDao(): WorkRecordDao
+        fun shiftRepository(): ShiftRepository
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -56,6 +58,7 @@ class AlarmReceiver : BroadcastReceiver() {
                                 ep.alarmScheduler().scheduleAlarms(date, shiftType, enabled)
                             }
                         }
+                        ep.shiftRepository().rescheduleAllMemoAlarms()
                     } finally {
                         pendingResult.finish()
                     }

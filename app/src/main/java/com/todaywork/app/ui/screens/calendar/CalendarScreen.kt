@@ -50,6 +50,7 @@ import com.todaywork.app.ui.theme.WeekendSat
 import com.todaywork.app.ui.theme.WeekendSun
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle as DateTextStyle
 import java.util.Locale
 
@@ -694,6 +695,7 @@ private fun DayDetailFullScreen(
 
     if (showMemoAddDialog) {
         MemoEditDialog(
+            date = currentDate,
             onSave = { title, colorHex, startMin, endMin, isAllDay, reminder ->
                 onAddMemo(currentDate, title, colorHex, startMin, endMin, isAllDay, reminder)
                 showMemoAddDialog = false
@@ -704,6 +706,7 @@ private fun DayDetailFullScreen(
 
     editingMemo?.let { memo ->
         MemoEditDialog(
+            date = currentDate,
             dialogTitle = "메모 수정",
             initialTitle = memo.title,
             initialColorHex = memo.colorHex,
@@ -865,6 +868,7 @@ private fun SalaryTabContent(modifier: Modifier = Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MemoEditDialog(
+    date: LocalDate = LocalDate.now(),
     dialogTitle: String = "새 메모",
     initialTitle: String = "",
     initialColorHex: Long = MEMO_COLORS[0],
@@ -1063,7 +1067,7 @@ private fun MemoEditDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("2026.07.07", fontSize = 15.sp, color = Color(0xFF1E1E1E))
+                            Text(date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")), fontSize = 15.sp, color = Color(0xFF1E1E1E))
                             if (!isAllDay) {
                                 VerticalDivider(modifier = Modifier.height(12.dp), color = Color.LightGray)
                                 Text(
@@ -1096,7 +1100,7 @@ private fun MemoEditDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("2026.07.07", fontSize = 15.sp, color = Color(0xFF1E1E1E))
+                            Text(date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")), fontSize = 15.sp, color = Color(0xFF1E1E1E))
                             if (!isAllDay) {
                                 VerticalDivider(modifier = Modifier.height(12.dp), color = Color.LightGray)
                                 Text(

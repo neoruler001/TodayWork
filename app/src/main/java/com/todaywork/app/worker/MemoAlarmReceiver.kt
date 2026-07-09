@@ -27,7 +27,7 @@ class MemoAlarmReceiver : BroadcastReceiver() {
             manager.createNotificationChannel(channel)
         }
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("메모 알림")
             .setContentText(title)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

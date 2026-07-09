@@ -235,6 +235,16 @@ class ShiftRepository @Inject constructor(
         triggerWidgetUpdate(context)
     }
 
+    suspend fun rescheduleAllMemoAlarms() {
+        val today = LocalDate.now()
+        val farFuture = today.plusYears(2)
+        val memos = memoDao.getMemosForRange(today.toEpochDay(), farFuture.toEpochDay())
+        memos.filter { it.reminderMinutes >= 0 }.forEach { entity ->
+            val date = LocalDate.ofEpochDay(entity.dateEpoch)
+            scheduleMemoAlarm(entity.id, date, entity.startTimeMinutes, entity.isAllDay, entity.title, entity.reminderMinutes)
+        }
+    }
+
     private fun scheduleMemoAlarm(
         memoId: Long,
         date: LocalDate,

@@ -324,7 +324,8 @@ private fun AddPatternDialog(
                                 cycles = preset
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            shape = RoundedCornerShape(0.dp)
                         ) {
                             Text(name, fontSize = 12.sp, modifier = Modifier.weight(1f))
                             ShiftCycleRow(cycles = preset)
