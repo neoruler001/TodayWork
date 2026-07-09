@@ -579,7 +579,7 @@ private fun DayDetailFullScreen(
                         modifier = Modifier.size(56.dp).clip(CircleShape).background(shift.toColor()),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(shift.shortLabel, fontSize = 24.sp, color = shift.badgeTextColor(), fontWeight = FontWeight.Bold)
+                        Text(if (shift.name == "HEALTH_OFF") "휴-보" else shift.shortLabel, fontSize = 24.sp, color = shift.badgeTextColor(), fontWeight = FontWeight.Bold)
                     }
                 } else {
                     Box(
@@ -932,7 +932,7 @@ private fun WorkTabContent(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = shift.shortLabel,
+                                text = if (shift.name == "HEALTH_OFF") "휴-보" else shift.shortLabel,
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (shift.isWorkDay) shift.badgeTextColor() else shift.toColor()
@@ -1564,7 +1564,7 @@ private fun WorkEditDialog(
                     onExpandedChange = { typeExpanded = it }
                 ) {
                     OutlinedTextField(
-                        value = "${selectedType.shortLabel} ${selectedType.label}",
+                        value = "${if (selectedType.name == "HEALTH_OFF") "휴-보" else selectedType.shortLabel} ${selectedType.label}",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("근무 타입") },
