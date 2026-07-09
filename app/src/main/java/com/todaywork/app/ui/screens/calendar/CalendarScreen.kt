@@ -612,10 +612,12 @@ private fun DayDetailFullScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp), tint = Color(0xFF1E1E1E))
-                    Spacer(Modifier.width(8.dp))
-                    Text("0원", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E1E1E))
+                if (false) { // 급여 정보 숨김 처리
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp), tint = Color(0xFF1E1E1E))
+                        Spacer(Modifier.width(8.dp))
+                        Text("0원", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E1E1E))
+                    }
                 }
             }
             
@@ -639,6 +641,7 @@ private fun DayDetailFullScreen(
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                             listOf("메모", "근무", "급여").forEachIndexed { index, title ->
+                                if (title == "급여") return@forEachIndexed // 급여 탭 숨김 처리
                                 val isSelected = selectedTab == index
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -689,6 +692,14 @@ private fun DayDetailFullScreen(
                         1 -> WorkTabContent(
                             dayInfo = dayInfo,
                             onShiftSelected = { newShift ->
+                                val oldShift = dayInfo.shiftType
+                                if (newShift == ShiftType.HEALTH_OFF && oldShift != ShiftType.HEALTH_OFF) {
+                                    if (dayInfo.memos.none { it.title == "보건" }) {
+                                        onAddMemo(currentDate, "보건", MEMO_COLORS[0], -1, -1, true, -1)
+                                    }
+                                } else if (newShift != ShiftType.HEALTH_OFF && oldShift == ShiftType.HEALTH_OFF) {
+                                    dayInfo.memos.find { it.title == "보건" }?.id?.let { onDeleteMemo(it) }
+                                }
                                 onSaveShift(
                                     currentDate,
                                     newShift.name,
@@ -720,6 +731,14 @@ private fun DayDetailFullScreen(
         WorkEditDialog(
             dayInfo = dayInfo,
             onSave = { shiftName, sh, sm, eh, em ->
+                val oldShift = dayInfo.shiftType
+                if (shiftName == ShiftType.HEALTH_OFF.name && oldShift != ShiftType.HEALTH_OFF) {
+                    if (dayInfo.memos.none { it.title == "보건" }) {
+                        onAddMemo(currentDate, "보건", MEMO_COLORS[0], -1, -1, true, -1)
+                    }
+                } else if (shiftName != ShiftType.HEALTH_OFF.name && oldShift == ShiftType.HEALTH_OFF) {
+                    dayInfo.memos.find { it.title == "보건" }?.id?.let { onDeleteMemo(it) }
+                }
                 onSaveShift(currentDate, shiftName, sh, sm, eh, em)
                 showWorkEditDialog = false
             },
@@ -868,18 +887,20 @@ private fun WorkTabContent(
         // --- 선택 영역 ---
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("선택", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
-                Spacer(modifier = Modifier.width(12.dp))
-                Text("전체보기", fontSize = 14.sp, color = Color.Gray)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("편집", fontSize = 14.sp, color = Color.Gray)
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-            }
+            Text("선택", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+        }
+
+        val sortedShifts = remember {
+            val priority = listOf(
+                com.todaywork.app.data.model.ShiftType.DAY,
+                com.todaywork.app.data.model.ShiftType.NIGHT,
+                com.todaywork.app.data.model.ShiftType.REST,
+                com.todaywork.app.data.model.ShiftType.HEALTH_OFF
+            )
+            val others = com.todaywork.app.data.model.ShiftType.entries.filter { it !in priority }
+            priority + others
         }
 
         LazyRow(
@@ -887,7 +908,7 @@ private fun WorkTabContent(
             contentPadding = PaddingValues(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            items(com.todaywork.app.data.model.ShiftType.entries) { shift ->
+            items(sortedShifts) { shift ->
                 val isSelected = dayInfo.shiftType == shift
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
