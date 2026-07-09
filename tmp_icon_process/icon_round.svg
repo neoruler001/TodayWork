@@ -4,14 +4,22 @@
     <clipPath id="circle-clip">
       <circle cx="256" cy="256" r="256" />
     </clipPath>
+    <!-- 접힌 종이 그림자 효과 -->
+    <filter id="page-fold-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="-4" dy="-4" stdDeviation="5" flood-color="#7B8CD4" flood-opacity="0.3" />
+    </filter>
+    <filter id="sparkle-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
     <!-- 웹폰트 Noto Sans KR 로드 -->
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&amp;display=swap');
       .title-text {
         font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
         font-weight: 700;
-        fill: #202F3D;
-        font-size: 76px;
+        fill: #2C3038;
+        font-size: 82px;
         letter-spacing: -2px;
       }
     </style>
@@ -19,37 +27,46 @@
 
   <!-- 전체 영역을 클립패스로 마스킹 (ic_launcher_round용) -->
   <g clip-path="url(#circle-clip)">
-    <!-- 1. 상단 주황색 배경 -->
-    <rect width="512" height="512" fill="#FF5A46" />
+    <!-- 1. 배경색 (라벤더 블루) -->
+    <rect width="512" height="512" fill="#BAC7F5" />
 
-    <!-- 2. 하단 흰색 본문 카드 영역 -->
-    <path d="M 0,512 
-             L 512,512 
-             L 512,155 
-             L 448,155 
-             Q 416,155 416,123 
-             L 416,67 
-             Q 416,35 384,35 
-             L 128,35 
-             Q 96,35 96,67 
-             L 96,123 
-             Q 96,155 64,155 
-             L 0,155 
+    <!-- 2. 우하단 반짝이 데코 -->
+    <!-- 주 별 -->
+    <path d="M 445,425 Q 445,440 430,440 Q 445,440 445,455 Q 445,440 460,440 Q 445,440 445,425 Z" 
+          fill="#FFFFFF" opacity="0.9" filter="url(#sparkle-glow)" />
+    <!-- 보조 작은 별 -->
+    <path d="M 465,405 Q 465,412 458,412 Q 465,412 465,419 Q 465,412 472,412 Q 465,412 465,405 Z" 
+          fill="#FFFFFF" opacity="0.8" />
+
+    <!-- 3. 본체 흰색 종이 카드 -->
+    <path d="M 48,160 
+             Q 48,100 108,100 
+             L 404,100 
+             Q 464,100 464,160 
+             L 464,360 
+             Q 464,410 410,430 
+             Q 360,450 360,460 
+             L 108,460 
+             Q 48,460 48,400 
              Z" 
           fill="#FFFFFF" />
 
-    <!-- 3. 중앙 텍스트 (마님 일정) -->
-    <text x="256" y="232" class="title-text" text-anchor="middle">마님</text>
-    <text x="256" y="324" class="title-text" text-anchor="middle">일정</text>
+    <!-- 4. 접혀 올라간 종이 꼬리 -->
+    <path d="M 360,460 
+             Q 410,430 464,360 
+             Q 430,425 410,445 
+             Q 385,460 360,460 
+             Z" 
+          fill="#F0F3FD" 
+          filter="url(#page-fold-shadow)" />
+    <!-- 접힌 경계면 흰색 하이라이트 레이어 -->
+    <path d="M 360,460 Q 410,430 464,360 Q 425,415 360,460 Z" fill="#FFFFFF" opacity="0.5" />
 
-    <!-- 4. 데코 오브젝트들 -->
-    <!-- 우측 녹색 원 -->
-    <circle cx="405" cy="285" r="46" fill="#35D692" />
+    <!-- 5. 상단 흰색 바인더 클립 -->
+    <rect x="132" y="70" width="248" height="28" rx="14" fill="#FFFFFF" />
 
-    <!-- 좌하단 주황색 원 -->
-    <circle cx="145" cy="420" r="46" fill="#FF5A46" />
-
-    <!-- 우하단 하늘색 알약 (캡슐) -->
-    <rect x="256" y="374" width="192" height="92" rx="46" ry="46" fill="#4FA2FF" />
+    <!-- 6. 중앙 텍스트 -->
+    <text x="256" y="245" class="title-text" text-anchor="middle">마님</text>
+    <text x="256" y="355" class="title-text" text-anchor="middle">일정</text>
   </g>
 </svg>
