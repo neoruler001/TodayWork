@@ -140,10 +140,11 @@ class CalendarViewModel @Inject constructor(
         colorHex: Long,
         startTimeMinutes: Int,
         endTimeMinutes: Int,
-        isAllDay: Boolean
+        isAllDay: Boolean,
+        reminderMinutes: Int = -1
     ) {
         viewModelScope.launch {
-            shiftRepo.addMemo(date, title, colorHex, startTimeMinutes, endTimeMinutes, isAllDay)
+            shiftRepo.addMemo(date, title, colorHex, startTimeMinutes, endTimeMinutes, isAllDay, reminderMinutes)
             loadMonth(_uiState.value.year, _uiState.value.month)
         }
     }
@@ -162,7 +163,8 @@ class CalendarViewModel @Inject constructor(
         colorHex: Long,
         startTimeMinutes: Int,
         endTimeMinutes: Int,
-        isAllDay: Boolean
+        isAllDay: Boolean,
+        reminderMinutes: Int = -1
     ) {
         viewModelScope.launch {
             val item = com.todaywork.app.data.model.MemoItem(
@@ -171,7 +173,8 @@ class CalendarViewModel @Inject constructor(
                 colorHex = colorHex,
                 startTimeMinutes = startTimeMinutes,
                 endTimeMinutes = endTimeMinutes,
-                isAllDay = isAllDay
+                isAllDay = isAllDay,
+                reminderMinutes = reminderMinutes
             )
             shiftRepo.updateMemo(item, date)
             loadMonth(_uiState.value.year, _uiState.value.month)

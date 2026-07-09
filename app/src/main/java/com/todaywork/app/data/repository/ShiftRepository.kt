@@ -1,6 +1,10 @@
 package com.todaywork.app.data.repository
 
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -18,6 +22,7 @@ import com.todaywork.app.util.AlarmScheduler
 import com.todaywork.app.util.HolidayUtil
 import com.todaywork.app.util.LunarUtil
 import com.todaywork.app.widget.CalendarWidget
+import com.todaywork.app.worker.MemoAlarmReceiver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +30,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -186,7 +194,8 @@ class ShiftRepository @Inject constructor(
         colorHex: Long,
         startTimeMinutes: Int,
         endTimeMinutes: Int,
-        isAllDay: Boolean
+        isAllDay: Boolean,
+        reminderMinutes: Int = -1
     ): Long {
         val entity = MemoEntity(
             dateEpoch = date.toEpochDay(),
@@ -194,9 +203,11 @@ class ShiftRepository @Inject constructor(
             colorHex = colorHex,
             startTimeMinutes = startTimeMinutes,
             endTimeMinutes = endTimeMinutes,
-            isAllDay = isAllDay
+            isAllDay = isAllDay,
+            reminderMinutes = reminderMinutes
         )
         val id = memoDao.insertMemo(entity)
+        if (reminderMinutes >= 0) scheduleMemoAlarm(id, date, startTimeMinutes, isAllDay, title, reminderMinutes)
         triggerWidgetUpdate(context)
         return id
     }
@@ -209,15 +220,67 @@ class ShiftRepository @Inject constructor(
             colorHex = memo.colorHex,
             startTimeMinutes = memo.startTimeMinutes,
             endTimeMinutes = memo.endTimeMinutes,
-            isAllDay = memo.isAllDay
+            isAllDay = memo.isAllDay,
+            reminderMinutes = memo.reminderMinutes
         )
         memoDao.updateMemo(entity)
+        cancelMemoAlarm(memo.id)
+        if (memo.reminderMinutes >= 0) scheduleMemoAlarm(memo.id, date, memo.startTimeMinutes, memo.isAllDay, memo.title, memo.reminderMinutes)
         triggerWidgetUpdate(context)
     }
 
     suspend fun deleteMemo(id: Long) {
+        cancelMemoAlarm(id)
         memoDao.deleteMemoById(id)
         triggerWidgetUpdate(context)
+    }
+
+    private fun scheduleMemoAlarm(
+        memoId: Long,
+        date: LocalDate,
+        startTimeMinutes: Int,
+        isAllDay: Boolean,
+        title: String,
+        reminderMinutes: Int
+    ) {
+        val effectiveStartMinutes = if (isAllDay || startTimeMinutes < 0) 8 * 60 else startTimeMinutes
+        val startTime = LocalTime.of(effectiveStartMinutes / 60, effectiveStartMinutes % 60)
+        val alarmDateTime = LocalDateTime.of(date, startTime).minusMinutes(reminderMinutes.toLong())
+        val alarmEpoch = alarmDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        if (alarmEpoch <= System.currentTimeMillis()) return
+
+        val intent = Intent(context, MemoAlarmReceiver::class.java).apply {
+            action = MemoAlarmReceiver.ACTION_MEMO_ALARM
+            putExtra(MemoAlarmReceiver.EXTRA_MEMO_TITLE, title)
+        }
+        val requestCode = (memoId + 2_000_000L).toInt()
+        val pendingIntent = PendingIntent.getBroadcast(
+            context, requestCode, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, alarmEpoch, pendingIntent)
+            } else {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, alarmEpoch, pendingIntent)
+            }
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun cancelMemoAlarm(memoId: Long) {
+        val intent = Intent(context, MemoAlarmReceiver::class.java)
+        val requestCode = (memoId + 2_000_000L).toInt()
+        val pendingIntent = PendingIntent.getBroadcast(
+            context, requestCode, intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        pendingIntent?.let {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            alarmManager.cancel(it)
+        }
     }
 
     suspend fun getMemosForDate(date: LocalDate): List<MemoItem> =

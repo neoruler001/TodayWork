@@ -54,6 +54,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- 메모 알림 BroadcastReceiver -->
+        <receiver
+            android:name=".worker.MemoAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.todaywork.app.MEMO_ALARM" />
+            </intent-filter>
+        </receiver>
+
         <!-- WorkManager 초기화 -->
         <provider
             android:name="androidx.startup.InitializationProvider"

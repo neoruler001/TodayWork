@@ -6,7 +6,8 @@ data class MemoItem(
     val colorHex: Long = 0xFF26C6DAL,
     val startTimeMinutes: Int = -1,
     val endTimeMinutes: Int = -1,
-    val isAllDay: Boolean = true
+    val isAllDay: Boolean = true,
+    val reminderMinutes: Int = -1
 ) {
     val startTime: String get() =
         if (startTimeMinutes >= 0) "%02d:%02d".format(startTimeMinutes / 60, startTimeMinutes % 60)

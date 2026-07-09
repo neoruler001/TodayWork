@@ -12,7 +12,8 @@ data class MemoEntity(
     val colorHex: Long = 0xFF26C6DAL,
     val startTimeMinutes: Int = -1,
     val endTimeMinutes: Int = -1,
-    val isAllDay: Boolean = true
+    val isAllDay: Boolean = true,
+    val reminderMinutes: Int = -1
 ) {
     fun toMemoItem() = MemoItem(
         id = id,
@@ -20,6 +21,7 @@ data class MemoEntity(
         colorHex = colorHex,
         startTimeMinutes = startTimeMinutes,
         endTimeMinutes = endTimeMinutes,
-        isAllDay = isAllDay
+        isAllDay = isAllDay,
+        reminderMinutes = reminderMinutes
     )
 }

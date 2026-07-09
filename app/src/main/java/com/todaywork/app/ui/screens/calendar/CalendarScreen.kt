@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,15 +54,13 @@ import java.time.format.TextStyle as DateTextStyle
 import java.util.Locale
 
 private val MEMO_COLORS = listOf(
-    0xFF26C6DAL, // teal
-    0xFF7986CBL, // indigo
-    0xFF66BB6AL, // green
-    0xFFEF5350L, // red
-    0xFFFFA726L, // orange
-    0xFFAB47BCL, // purple
-    0xFF78909CL, // blue-grey
-    0xFFEC407AL, // pink
+    0xFFFFD6E7L, 0xFFCDEFFFL, 0xFFFFF3C4L, 0xFFDDF7D8L, 0xFFF5E8FFL,
+    0xFFCCD1FFL, 0xFFFFA9B0L, 0xFFFFDDA6L, 0xFFA8C8F0L, 0xFFB5EAD7L,
+    0xFFFFE5CCL, 0xFFC9E4DEL, 0xFFF0D9FFL, 0xFFE0F7FAL, 0xFFFCE4ECL,
+    0xFFE8EAF6L, 0xFFFFF9C4L, 0xFFDCEDC8L, 0xFFFFCDD2L,
 )
+
+private val MEMO_TEXT_DARK = Color(0xFF333333)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -464,7 +464,7 @@ private fun CalendarCell(
                         text = displayText,
                         fontSize = 11.sp,
                         lineHeight = 11.sp,
-                        color = Color.White,
+                        color = MEMO_TEXT_DARK,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -483,9 +483,9 @@ private fun DayDetailFullScreen(
     viewModel: CalendarViewModel,
     onSaveShift: (LocalDate, String, Int, Int, Int, Int) -> Unit,
     onResetShift: (LocalDate) -> Unit,
-    onAddMemo: (LocalDate, String, Long, Int, Int, Boolean) -> Unit,
+    onAddMemo: (LocalDate, String, Long, Int, Int, Boolean, Int) -> Unit,
     onDeleteMemo: (Long) -> Unit,
-    onUpdateMemo: (Long, LocalDate, String, Long, Int, Int, Boolean) -> Unit,
+    onUpdateMemo: (Long, LocalDate, String, Long, Int, Int, Boolean, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
     var currentDate by remember { mutableStateOf(initialDayInfo.date) }
@@ -694,8 +694,8 @@ private fun DayDetailFullScreen(
 
     if (showMemoAddDialog) {
         MemoEditDialog(
-            onSave = { title, colorHex, startMin, endMin, isAllDay ->
-                onAddMemo(currentDate, title, colorHex, startMin, endMin, isAllDay)
+            onSave = { title, colorHex, startMin, endMin, isAllDay, reminder ->
+                onAddMemo(currentDate, title, colorHex, startMin, endMin, isAllDay, reminder)
                 showMemoAddDialog = false
             },
             onDismiss = { showMemoAddDialog = false }
@@ -712,8 +712,9 @@ private fun DayDetailFullScreen(
             initialStartMin = if (memo.startTimeMinutes >= 0) memo.startTimeMinutes % 60 else 0,
             initialEndHour = if (memo.endTimeMinutes >= 0) memo.endTimeMinutes / 60 else 9,
             initialEndMin = if (memo.endTimeMinutes >= 0) memo.endTimeMinutes % 60 else 0,
-            onSave = { title, colorHex, startMin, endMin, isAllDay ->
-                onUpdateMemo(memo.id, currentDate, title, colorHex, startMin, endMin, isAllDay)
+            initialReminderMinutes = memo.reminderMinutes,
+            onSave = { title, colorHex, startMin, endMin, isAllDay, reminder ->
+                onUpdateMemo(memo.id, currentDate, title, colorHex, startMin, endMin, isAllDay, reminder)
                 editingMemo = null
             },
             onDelete = {
@@ -782,19 +783,19 @@ private fun MemoCard(memo: MemoItem, onDelete: () -> Unit, onEdit: () -> Unit) {
                 Text(
                     text = memo.timeDisplay,
                     fontSize = 11.sp,
-                    color = Color.White.copy(alpha = 0.85f)
+                    color = MEMO_TEXT_DARK.copy(alpha = 0.65f)
                 )
             }
             Text(
                 text = memo.title,
                 fontSize = 15.sp,
-                color = Color.White,
+                color = MEMO_TEXT_DARK,
                 fontWeight = FontWeight.SemiBold
             )
         }
         Box(modifier = Modifier.align(Alignment.TopEnd)) {
             IconButton(onClick = { showMenu = true }, modifier = Modifier.size(28.dp)) {
-                Icon(Icons.Default.MoreVert, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.MoreVert, null, tint = MEMO_TEXT_DARK, modifier = Modifier.size(18.dp))
             }
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                 DropdownMenuItem(
@@ -872,7 +873,8 @@ private fun MemoEditDialog(
     initialStartMin: Int = 0,
     initialEndHour: Int = 9,
     initialEndMin: Int = 0,
-    onSave: (title: String, colorHex: Long, startMin: Int, endMin: Int, isAllDay: Boolean) -> Unit,
+    initialReminderMinutes: Int = -1,
+    onSave: (title: String, colorHex: Long, startMin: Int, endMin: Int, isAllDay: Boolean, reminderMinutes: Int) -> Unit,
     onDelete: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
@@ -883,13 +885,14 @@ private fun MemoEditDialog(
     var startMin by remember { mutableIntStateOf(initialStartMin) }
     var endHour by remember { mutableIntStateOf(initialEndHour) }
     var endMin by remember { mutableIntStateOf(initialEndMin) }
+    var reminderMinutes by remember { mutableIntStateOf(initialReminderMinutes) }
 
-    // 설정 항목용 추가 State
-    var urlText by remember { mutableStateOf("") }
     var isTodo by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
+    var showReminderDialog by remember { mutableStateOf(false) }
+    var showCustomReminderInput by remember { mutableStateOf(false) }
 
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
@@ -930,7 +933,7 @@ private fun MemoEditDialog(
                             if (title.isNotBlank()) {
                                 val sm = if (isAllDay) -1 else startHour * 60 + startMin
                                 val em = if (isAllDay) -1 else endHour * 60 + endMin
-                                onSave(title.trim(), selectedColor, sm, em, isAllDay)
+                                onSave(title.trim(), selectedColor, sm, em, isAllDay, reminderMinutes)
                             }
                         }
                     ) {
@@ -985,74 +988,22 @@ private fun MemoEditDialog(
                         label = "색",
                         onClick = { showColorPicker = true }
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    "A",
-                                    style = TextStyle(
-                                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = Color(0xFF757575)
-                                    )
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = androidx.compose.material.icons.Icons.Default.Close,
-                                    contentDescription = null,
-                                    tint = Color(0xFFD5D5D5),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = androidx.compose.material.icons.Icons.Default.Palette,
-                                    contentDescription = null,
-                                    tint = Color(0xFF757575),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(selectedColor))
-                                        .border(1.dp, Color.LightGray, CircleShape)
-                                )
-                            }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Palette,
+                                contentDescription = null,
+                                tint = Color(0xFF757575),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(selectedColor))
+                                    .border(1.dp, Color.LightGray, CircleShape)
+                            )
                         }
-                    }
-
-                    HorizontalDivider(color = Color(0xFFEEEEEE))
-
-                    // URL Row
-                    SettingsRow(label = "URL") {
-                        BasicTextField(
-                            value = urlText,
-                            onValueChange = { urlText = it },
-                            modifier = Modifier.width(180.dp),
-                            textStyle = TextStyle(fontSize = 14.sp, color = Color(0xFF1E1E1E), textAlign = TextAlign.End),
-                            decorationBox = { innerTextField ->
-                                if (urlText.isEmpty()) {
-                                    Text("http://", color = Color(0xFFD5D5D5), fontSize = 14.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
-                                }
-                                innerTextField()
-                            }
-                        )
-                    }
-
-                    HorizontalDivider(color = Color(0xFFEEEEEE))
-
-                    // 사진 Row
-                    SettingsRow(label = "사진") {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.Image,
-                            contentDescription = null,
-                            tint = Color(0xFF9E9E9E)
-                        )
                     }
 
                     HorizontalDivider(color = Color(0xFFEEEEEE))
@@ -1076,30 +1027,6 @@ private fun MemoEditDialog(
                                 checkedTrackColor = Color(0xFF1976D2)
                             )
                         )
-                    }
-
-                    HorizontalDivider(color = Color(0xFFEEEEEE))
-
-                    // 라벨 Row
-                    SettingsRow(
-                        leadingIcon = {
-                            Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.Label,
-                                contentDescription = null,
-                                tint = Color(0xFF757575),
-                                modifier = Modifier.rotate(45f)
-                            )
-                        },
-                        label = "라벨"
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFF1976D2))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text("기본", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
                     }
 
                     Spacer(Modifier.height(16.dp))
@@ -1202,42 +1129,14 @@ private fun MemoEditDialog(
                                 tint = Color(0xFF757575)
                             )
                         },
-                        label = "알림"
+                        label = "알림",
+                        onClick = { showReminderDialog = true }
                     ) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.AddCircle,
-                            contentDescription = null,
-                            tint = Color(0xFF9E9E9E),
-                            modifier = Modifier.size(22.dp)
+                        Text(
+                            text = reminderLabel(reminderMinutes),
+                            fontSize = 14.sp,
+                            color = if (reminderMinutes >= 0) Color(0xFF1976D2) else Color(0xFF9E9E9E)
                         )
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    // 반복 섹션 타이틀
-                    Text(
-                        text = "반복",
-                        color = Color(0xFF1976D2),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-
-                    // 근무에 반복
-                    SettingsRow(label = "근무에 반복") {
-                        Switch(checked = false, onCheckedChange = {}, enabled = false)
-                    }
-                    HorizontalDivider(color = Color(0xFFEEEEEE))
-
-                    // 요일에 반복
-                    SettingsRow(label = "요일에 반복") {
-                        Switch(checked = false, onCheckedChange = {}, enabled = false)
-                    }
-                    HorizontalDivider(color = Color(0xFFEEEEEE))
-
-                    // 날짜에 반복
-                    SettingsRow(label = "날짜에 반복") {
-                        Switch(checked = false, onCheckedChange = {}, enabled = false)
                     }
 
                     // 삭제 버튼 (수정 모드일 때 노출)
@@ -1389,6 +1288,95 @@ private fun MemoEditDialog(
             }
         }
     }
+
+    // 알림 옵션 다이얼로그
+    if (showReminderDialog) {
+        val options = listOf(
+            "없음" to -1,
+            "일정 시작시간" to 0,
+            "5분 전" to 5,
+            "10분 전" to 10,
+            "30분 전" to 30,
+            "1시간 전" to 60,
+            "직접 추가" to Int.MIN_VALUE
+        )
+        AlertDialog(
+            onDismissRequest = { showReminderDialog = false },
+            title = { Text("알림") },
+            text = {
+                Column {
+                    options.forEach { (label, value) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (value == Int.MIN_VALUE) {
+                                        showReminderDialog = false
+                                        showCustomReminderInput = true
+                                    } else {
+                                        reminderMinutes = value
+                                        showReminderDialog = false
+                                    }
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (reminderMinutes == value) {
+                                Icon(
+                                    imageVector = androidx.compose.material.icons.Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color(0xFF1976D2),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.size(18.dp))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(label, fontSize = 16.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showReminderDialog = false }) { Text("취소") }
+            }
+        )
+    }
+
+    // 직접 입력 다이얼로그
+    if (showCustomReminderInput) {
+        var customText by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showCustomReminderInput = false },
+            title = { Text("직접 입력") },
+            text = {
+                OutlinedTextField(
+                    value = customText,
+                    onValueChange = { customText = it.filter { c -> c.isDigit() } },
+                    label = { Text("분 전") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    customText.toIntOrNull()?.let { reminderMinutes = it }
+                    showCustomReminderInput = false
+                }) { Text("확인") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomReminderInput = false }) { Text("취소") }
+            }
+        )
+    }
+}
+
+private fun reminderLabel(minutes: Int): String = when {
+    minutes < 0 -> "없음"
+    minutes == 0 -> "일정 시작시간"
+    minutes < 60 -> "${minutes}분 전"
+    else -> "${minutes / 60}시간 전"
 }
 
 // 공통 설정 Row 컴포넌트
