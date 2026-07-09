@@ -48,7 +48,7 @@ import com.todaywork.app.ui.theme.WeekendSat
 import com.todaywork.app.ui.theme.WeekendSun
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.format.TextStyle
+import java.time.format.TextStyle as DateTextStyle
 import java.util.Locale
 
 private val MEMO_COLORS = listOf(
@@ -558,7 +558,7 @@ private fun DayDetailFullScreen(
                     modifier = Modifier.weight(1f),
                     label = "dateHeader"
                 ) { date ->
-                    val dowStr = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.KOREAN)
+                    val dowStr = date.dayOfWeek.getDisplayName(DateTextStyle.SHORT, Locale.KOREAN)
                     val isHol = dayInfo.isHoliday && dayInfo.date == date
                     val dayColor = when (date.dayOfWeek) {
                         DayOfWeek.SUNDAY -> WeekendSun
