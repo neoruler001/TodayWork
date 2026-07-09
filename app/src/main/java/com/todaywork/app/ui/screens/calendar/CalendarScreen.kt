@@ -86,7 +86,7 @@ fun CalendarScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
+                .background(MaterialTheme.colorScheme.background)
         ) {
             CalendarHeader(
                 year = uiState.year,
@@ -417,11 +417,17 @@ private fun CalendarCell(
 
             if (shift != null) {
                 if (shift.isWorkDay) {
+                    val isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
                     Box(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(CircleShape)
-                            .background(shift.toColor()),
+                            .background(shift.toColor())
+                            .then(
+                                if (isDarkTheme && shift.name == "NIGHT") 
+                                    Modifier.border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                                else Modifier
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
