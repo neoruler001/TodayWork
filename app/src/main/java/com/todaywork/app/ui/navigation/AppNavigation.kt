@@ -59,13 +59,13 @@ fun AppNavigation(windowSizeClass: WindowSizeClass, initialDateStr: String? = nu
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
-            title = { Text("앱 종료") },
+            title = { Text("마님 오늘도 수고하셨습니다~♡") },
             text = { Text("앱을 종료하시겠습니까?") },
             confirmButton = {
                 Button(
                     onClick = { (context as? Activity)?.finish() }
                 ) {
-                    Text("앱 종료")
+                    Text("종료")
                 }
             },
             dismissButton = {

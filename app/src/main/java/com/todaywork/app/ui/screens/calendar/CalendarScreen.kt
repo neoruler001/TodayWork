@@ -55,9 +55,10 @@ import java.time.format.TextStyle as DateTextStyle
 import java.util.Locale
 
 private val MEMO_COLORS = listOf(
+    0xFFE0F7FAL, // 민트 (기본)
     0xFFFFD6E7L, 0xFFCDEFFFL, 0xFFFFF3C4L, 0xFFDDF7D8L, 0xFFF5E8FFL,
     0xFFCCD1FFL, 0xFFFFA9B0L, 0xFFFFDDA6L, 0xFFA8C8F0L, 0xFFB5EAD7L,
-    0xFFFFE5CCL, 0xFFC9E4DEL, 0xFFF0D9FFL, 0xFFE0F7FAL, 0xFFFCE4ECL,
+    0xFFFFE5CCL, 0xFFC9E4DEL, 0xFFF0D9FFL, 0xFFFCE4ECL,
     0xFFE8EAF6L, 0xFFFFF9C4L, 0xFFDCEDC8L, 0xFFFFCDD2L,
 )
 
@@ -85,7 +86,7 @@ fun CalendarScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(Color.White)
         ) {
             CalendarHeader(
                 year = uiState.year,
@@ -392,10 +393,16 @@ private fun CalendarCell(
             }
 
             // 음력: showLunar가 켜져 있으면 모든 날짜 표시,
-            // 꺼져 있어도 음력 1일(초하루) · 15일(보름)은 항상 표시
+            // 꺼져 있어도 음력 1일 · 15일은 항상 표시
             val lunarText = dayInfo?.lunarDay
-            val isLunarKeyDay = lunarText == "초하루" || lunarText == "보름"
-                    || (lunarText?.startsWith("윤") == true && (lunarText.endsWith("초하루") || lunarText.endsWith("보름")))
+            val isLunarKeyDay = lunarText?.let { s ->
+                // 형식: "왦4.1", "6.1", "6.15", "윤6.1" 등
+                val dotIdx = s.indexOfLast { it == '.' }
+                if (dotIdx >= 0) {
+                    val dayPart = s.substring(dotIdx + 1).toIntOrNull()
+                    dayPart == 1 || dayPart == 15
+                } else false
+            } ?: false
             if (lunarText?.isNotBlank() == true && (showLunar || isLunarKeyDay)) {
                 Text(
                     text = lunarText,
@@ -457,12 +464,9 @@ private fun CalendarCell(
             val visibleMemos = memos.take(2)
             visibleMemos.forEachIndexed { idx, memo ->
                 val isLast = idx == visibleMemos.lastIndex
-                // 시작 시간이 있으면 "N시 " 접두어를 붙임 (하루종일이 아닌 경우)
-                val timePrefix = if (!memo.isAllDay && memo.startTimeMinutes >= 0) {
-                    "${memo.startTimeMinutes / 60}시 "
-                } else ""
-                val displayText = if (isLast && hasMore) "$timePrefix${memo.title} more..."
-                                  else "$timePrefix${memo.title}"
+                // 시간 접두어 제거 - 메모 제목만 표시
+                val displayText = if (isLast && hasMore) "${memo.title} more..."
+                                  else memo.title
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1094,7 +1098,14 @@ private fun MemoEditDialog(
                             com.todaywork.app.ui.components.WheelTimePicker(
                                 initialHour = startHour,
                                 initialMinute = startMin,
-                                onTimeSelected = { h, m -> startHour = h; startMin = m }
+                                onTimeSelected = { h, m ->
+                                    startHour = h
+                                    startMin = m
+                                    // 시작시간 변경 시 종료시간을 자동으로 1시간 후로 설정
+                                    val totalEnd = h * 60 + m + 60
+                                    endHour = (totalEnd / 60) % 24
+                                    endMin = totalEnd % 60
+                                }
                             )
                         }
                     }

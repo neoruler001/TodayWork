@@ -113,12 +113,7 @@ object LunarUtil {
     ) {
         fun toDisplayString(): String {
             val leapStr = if (isLeapMonth) "윤" else ""
-            return when (day) {
-                1  -> "${leapStr}초하루"
-                15 -> "${leapStr}보름"
-                30 -> "${leapStr}그믐"
-                else -> "$leapStr${day}"
-            }
+            return "$leapStr${month}.${day}"
         }
     }
 }
