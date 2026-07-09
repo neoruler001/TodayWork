@@ -935,7 +935,7 @@ private fun WorkTabContent(
             val em = dayInfo.endTime.split(":").getOrNull(1)?.toIntOrNull() ?: 0
 
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, bottom = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
