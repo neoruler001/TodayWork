@@ -15,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -510,7 +511,7 @@ private fun DayDetailFullScreen(
     onDismiss: () -> Unit
 ) {
     var currentDate by remember { mutableStateOf(initialDayInfo.date) }
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(1) } // 1: 근무 (디폴트)
     var showWorkEditDialog by remember { mutableStateOf(false) }
     var showMemoAddDialog by remember { mutableStateOf(false) }
     var editingMemo by remember { mutableStateOf<MemoItem?>(null) }
@@ -531,173 +532,186 @@ private fun DayDetailFullScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+        color = Color(0xFFFFF9E6)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-
-            // ── Navigation header (swipeable) ────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, end = 4.dp, top = 4.dp)
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures(
-                            onDragEnd = {
-                                when {
-                                    swipeDelta < -100f -> currentDate = currentDate.plusDays(1)
-                                    swipeDelta > 100f -> currentDate = currentDate.minusDays(1)
-                                }
-                                swipeDelta = 0f
-                            },
-                            onDragCancel = { swipeDelta = 0f },
-                            onHorizontalDrag = { _, delta -> swipeDelta += delta }
-                        )
-                    },
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            
+            // ── TOP PASTEL SECTION ──
+            Row(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.End) {
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, "닫기",
-                        tint = MaterialTheme.colorScheme.onBackground)
-                }
-                IconButton(onClick = { currentDate = currentDate.minusDays(1) }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "이전 날",
-                        tint = MaterialTheme.colorScheme.onBackground)
-                }
-
-                // Animated date display
-                AnimatedContent(
-                    targetState = currentDate,
-                    transitionSpec = {
-                        if (targetState > initialState) {
-                            (slideInHorizontally { it } + fadeIn()) togetherWith
-                                    (slideOutHorizontally { -it } + fadeOut())
-                        } else {
-                            (slideInHorizontally { -it } + fadeIn()) togetherWith
-                                    (slideOutHorizontally { it } + fadeOut())
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    label = "dateHeader"
-                ) { date ->
-                    val dowStr = date.dayOfWeek.getDisplayName(DateTextStyle.SHORT, Locale.KOREAN)
-                    val isHol = dayInfo.isHoliday && dayInfo.date == date
-                    val dayColor = when (date.dayOfWeek) {
-                        DayOfWeek.SUNDAY -> WeekendSun
-                        DayOfWeek.SATURDAY -> WeekendSat
-                        else -> if (isHol) WeekendSun else MaterialTheme.colorScheme.onBackground
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "${date.monthValue}월 ${date.dayOfMonth}일 ${dowStr}요일",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = dayColor,
-                            textAlign = TextAlign.Center
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (dayInfo.lunarDay.isNotBlank() && dayInfo.date == date) {
-                                Text("음 ${dayInfo.lunarDay}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = LunarText)
-                            }
-                            if (dayInfo.isHoliday && dayInfo.date == date && dayInfo.holidayName.isNotBlank()) {
-                                Text(dayInfo.holidayName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = WeekendSun)
-                            }
-                        }
-                    }
-                }
-
-                IconButton(onClick = { currentDate = currentDate.plusDays(1) }) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "다음 날",
-                        tint = MaterialTheme.colorScheme.onBackground)
+                    Icon(Icons.Default.Close, "닫기", tint = Color(0xFF1E1E1E))
                 }
             }
 
-            // ── Shift info row ────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                val shift = dayInfo.shiftType
-                if (shift != null) {
-                    if (shift.isWorkDay) {
-                        Box(
-                            modifier = Modifier.size(44.dp).clip(CircleShape).background(shift.toColor()),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(shift.shortLabel, fontSize = 20.sp,
-                                color = shift.badgeTextColor(), fontWeight = FontWeight.Bold)
-                        }
-                    } else {
-                        Box(Modifier.size(44.dp), contentAlignment = Alignment.Center) {
-                            Text(shift.shortLabel, fontSize = 26.sp,
-                                color = shift.toColor(), fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(shift.label,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold)
-                            if (dayInfo.isModified) {
-                                Spacer(Modifier.width(6.dp))
-                                Text("(수정됨)", fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.tertiary)
-                            }
-                        }
-                        if (dayInfo.startTime.isNotBlank()) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Schedule, null,
-                                    modifier = Modifier.size(13.dp),
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-                                Spacer(Modifier.width(3.dp))
-                                Text("${dayInfo.startTime} - ${dayInfo.endTime}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                            }
-                        }
-                    }
-                } else {
-                    Text("근무 없음",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f))
-                }
-            }
-
-            HorizontalDivider()
-
-            // ── Tabs ──────────────────────────────────────────
-            TabRow(selectedTabIndex = selectedTab) {
-                listOf("메모", "근무", "급여").forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title, style = MaterialTheme.typography.labelLarge) }
+            val dowStr = currentDate.dayOfWeek.getDisplayName(DateTextStyle.SHORT, Locale.KOREAN)
+            Row(modifier = Modifier.padding(horizontal = 24.dp), verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = "${currentDate.monthValue}월 ${currentDate.dayOfMonth}일 ${dowStr}요일",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E1E1E)
+                )
+                if (dayInfo.lunarDay.isNotBlank()) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "음 ${dayInfo.lunarDay}",
+                        fontSize = 14.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 2.dp)
                     )
                 }
             }
 
-            // ── Tab content (fills remaining space) ──────────
-            when (selectedTab) {
-                0 -> MemoTabContent(
-                    memos = dayInfo.memos,
-                    onAddClick = { showMemoAddDialog = true },
-                    onDelete = onDeleteMemo,
-                    onEdit = { editingMemo = it },
-                    modifier = Modifier.fillMaxWidth().weight(1f)
-                )
-                1 -> WorkTabContent(
-                    dayInfo = dayInfo,
-                    onEditClick = { showWorkEditDialog = true },
-                    onReset = { onResetShift(currentDate) },
-                    modifier = Modifier.fillMaxWidth().weight(1f)
-                )
-                2 -> SalaryTabContent(modifier = Modifier.fillMaxWidth().weight(1f))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                IconButton(onClick = { currentDate = currentDate.minusDays(1) }) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "이전 날", tint = Color.LightGray)
+                }
+                
+                val shift = dayInfo.shiftType
+                if (shift != null) {
+                    Box(
+                        modifier = Modifier.size(56.dp).clip(CircleShape).background(shift.toColor()),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(shift.shortLabel, fontSize = 24.sp, color = shift.badgeTextColor(), fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier.size(56.dp).clip(CircleShape).background(Color.LightGray.copy(alpha = 0.3f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("없음", fontSize = 16.sp, color = Color.Gray, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                IconButton(onClick = { currentDate = currentDate.plusDays(1) }) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "다음 날", tint = Color.LightGray)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(modifier = Modifier.padding(horizontal = 24.dp)) {
+                val shift = dayInfo.shiftType
+                if (shift != null && dayInfo.startTime.isNotBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Schedule, null, modifier = Modifier.size(16.dp), tint = Color(0xFF1E1E1E))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "${dayInfo.startTime} - ${dayInfo.endTime}",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF1E1E1E)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(16.dp), tint = Color(0xFF1E1E1E))
+                    Spacer(Modifier.width(8.dp))
+                    Text("0원", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E1E1E))
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Box(modifier = Modifier.fillMaxWidth().padding(end = 24.dp, bottom = 16.dp), contentAlignment = Alignment.CenterEnd) {
+                Icon(Icons.Default.Edit, "메모", modifier = Modifier.size(24.dp), tint = Color.Gray.copy(alpha = 0.7f))
+            }
+
+            // ── BOTTOM WHITE TABS SECTION ──
+            Surface(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                color = Color.White,
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize().padding(top = 16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                            listOf("메모", "근무", "급여").forEachIndexed { index, title ->
+                                val isSelected = selectedTab == index
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.clickable { selectedTab = index }
+                                ) {
+                                    Text(
+                                        text = title,
+                                        fontSize = 16.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color(0xFF1E1E1E) else Color.Gray
+                                    )
+                                    if (isSelected) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Box(modifier = Modifier.width(24.dp).height(3.dp).background(Color(0xFF1E1E1E), CircleShape))
+                                    } else {
+                                        Spacer(modifier = Modifier.height(7.dp))
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xFFF0F5FF),
+                            modifier = Modifier.clickable { showWorkEditDialog = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.DateRange, null, tint = Color(0xFF1976D2), modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("본근무 수정", fontSize = 12.sp, color = Color(0xFF1976D2), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(top = 8.dp), color = Color(0xFFEEEEEE))
+
+                    when (selectedTab) {
+                        0 -> MemoTabContent(
+                            memos = dayInfo.memos,
+                            onAddClick = { showMemoAddDialog = true },
+                            onDelete = onDeleteMemo,
+                            onEdit = { editingMemo = it },
+                            modifier = Modifier.fillMaxWidth().weight(1f)
+                        )
+                        1 -> WorkTabContent(
+                            dayInfo = dayInfo,
+                            onShiftSelected = { newShift ->
+                                onSaveShift(
+                                    currentDate,
+                                    newShift.name,
+                                    newShift.defaultStartHour,
+                                    newShift.defaultStartMin,
+                                    newShift.defaultEndHour,
+                                    newShift.defaultEndMin
+                                )
+                            },
+                            onTimeUpdated = { sh, sm, eh, em ->
+                                if (dayInfo.shiftType != null) {
+                                    onSaveShift(
+                                        currentDate,
+                                        dayInfo.shiftType.name,
+                                        sh, sm, eh, em
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().weight(1f)
+                        )
+                        2 -> SalaryTabContent(modifier = Modifier.fillMaxWidth().weight(1f))
+                    }
+                }
             }
         }
     }
@@ -844,26 +858,127 @@ private fun MemoCard(memo: MemoItem, onDelete: () -> Unit, onEdit: () -> Unit) {
 @Composable
 private fun WorkTabContent(
     dayInfo: DayInfo,
-    onEditClick: () -> Unit,
-    onReset: () -> Unit,
+    onShiftSelected: (com.todaywork.app.data.model.ShiftType) -> Unit,
+    onTimeUpdated: (Int, Int, Int, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier
-            .padding(horizontal = 16.dp)
-            .padding(top = 16.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
     ) {
-        Button(onClick = onEditClick, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("본근무 수정")
+        // --- 선택 영역 ---
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("선택", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("전체보기", fontSize = 14.sp, color = Color.Gray)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("편집", fontSize = 14.sp, color = Color.Gray)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+            }
         }
-        if (dayInfo.isModified) {
-            OutlinedButton(onClick = onReset, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("패턴으로 복원")
+
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(com.todaywork.app.data.model.ShiftType.entries) { shift ->
+                val isSelected = dayInfo.shiftType == shift
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(if (isSelected) Color(0xFF1976D2) else Color.Transparent)
+                            .clickable { onShiftSelected(shift) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .background(if (shift.isWorkDay) shift.toColor() else Color.White)
+                                .border(
+                                    width = if (shift.isWorkDay) 0.dp else 1.dp,
+                                    color = if (shift.isWorkDay) Color.Transparent else shift.toColor(),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = shift.shortLabel,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (shift.isWorkDay) shift.badgeTextColor() else shift.toColor()
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalDivider(modifier = Modifier.padding(top = 24.dp, bottom = 16.dp, start = 24.dp, end = 24.dp), color = Color(0xFFEEEEEE))
+
+        // --- 근무 시간 영역 ---
+        if (dayInfo.shiftType != null && dayInfo.shiftType.isWorkDay) {
+            var showStartPicker by remember { mutableStateOf(false) }
+            var showEndPicker by remember { mutableStateOf(false) }
+            
+            val sh = dayInfo.startTime.split(":").getOrNull(0)?.toIntOrNull() ?: 0
+            val sm = dayInfo.startTime.split(":").getOrNull(1)?.toIntOrNull() ?: 0
+            val eh = dayInfo.endTime.split(":").getOrNull(0)?.toIntOrNull() ?: 0
+            val em = dayInfo.endTime.split(":").getOrNull(1)?.toIntOrNull() ?: 0
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("근무 시간", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E1E1E))
+            }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { showStartPicker = !showStartPicker; showEndPicker = false },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("시작: %02d:%02d".format(sh, sm), color = Color(0xFF1E1E1E), fontSize = 15.sp)
+                }
+                OutlinedButton(
+                    onClick = { showEndPicker = !showEndPicker; showStartPicker = false },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("종료: %02d:%02d".format(eh, em), color = Color(0xFF1E1E1E), fontSize = 15.sp)
+                }
+            }
+
+            if (showStartPicker) {
+                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
+                    com.todaywork.app.ui.components.WheelTimePicker(
+                        initialHour = sh,
+                        initialMinute = sm,
+                        onTimeSelected = { newH, newM -> onTimeUpdated(newH, newM, eh, em) }
+                    )
+                }
+            }
+            if (showEndPicker) {
+                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
+                    com.todaywork.app.ui.components.WheelTimePicker(
+                        initialHour = eh,
+                        initialMinute = em,
+                        onTimeSelected = { newH, newM -> onTimeUpdated(sh, sm, newH, newM) }
+                    )
+                }
             }
         }
     }
