@@ -391,9 +391,14 @@ private fun CalendarCell(
                 }
             }
 
-            if (showLunar && dayInfo?.lunarDay?.isNotBlank() == true) {
+            // 음력: showLunar가 켜져 있으면 모든 날짜 표시,
+            // 꺼져 있어도 음력 1일(초하루) · 15일(보름)은 항상 표시
+            val lunarText = dayInfo?.lunarDay
+            val isLunarKeyDay = lunarText == "초하루" || lunarText == "보름"
+                    || (lunarText?.startsWith("윤") == true && (lunarText.endsWith("초하루") || lunarText.endsWith("보름")))
+            if (lunarText?.isNotBlank() == true && (showLunar || isLunarKeyDay)) {
                 Text(
-                    text = dayInfo.lunarDay,
+                    text = lunarText,
                     fontSize = 8.sp,
                     color = LunarText,
                     maxLines = 1,
@@ -452,7 +457,12 @@ private fun CalendarCell(
             val visibleMemos = memos.take(2)
             visibleMemos.forEachIndexed { idx, memo ->
                 val isLast = idx == visibleMemos.lastIndex
-                val displayText = if (isLast && hasMore) "${memo.title} more..." else memo.title
+                // 시작 시간이 있으면 "N시 " 접두어를 붙임 (하루종일이 아닌 경우)
+                val timePrefix = if (!memo.isAllDay && memo.startTimeMinutes >= 0) {
+                    "${memo.startTimeMinutes / 60}시 "
+                } else ""
+                val displayText = if (isLast && hasMore) "$timePrefix${memo.title} more..."
+                                  else "$timePrefix${memo.title}"
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
