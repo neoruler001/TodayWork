@@ -67,8 +67,6 @@ class ShiftRepository @Inject constructor(
     suspend fun activatePattern(patternId: Long) {
         shiftPatternDao.deactivateAll()
         shiftPatternDao.activatePattern(patternId)
-        generateRecordsForPattern(patternId)
-        scheduleAlarmsForUpcomingDays()
         triggerWidgetUpdate(context)
     }
 

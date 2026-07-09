@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">수기 근무</string>
+    <string name="app_name">마님 일정</string>
     <string name="notification_channel_name">근무 알람</string>
     <string name="notification_channel_desc">교대 근무 시작 전 알람</string>
 </resources>

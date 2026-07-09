@@ -34,7 +34,7 @@ class AppPreferences @Inject constructor(
 
     val showLunar: Flow<Boolean> = dataStore.data
         .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
-        .map { it[Keys.SHOW_LUNAR] ?: true }
+        .map { it[Keys.SHOW_LUNAR] ?: false }
 
     val showHoliday: Flow<Boolean> = dataStore.data
         .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }

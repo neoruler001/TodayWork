@@ -212,7 +212,6 @@ class CalendarWidget : GlanceAppWidget() {
                                     if (memos.isNotEmpty()) {
                                         val memo = memos.first()
                                         val memoColor = Color(memo.colorHex)
-                                        val memoText = if (memos.size > 1) "${memo.title}+" else memo.title
                                         Box(
                                             modifier = GlanceModifier
                                                 .fillMaxWidth()
@@ -222,12 +221,24 @@ class CalendarWidget : GlanceAppWidget() {
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
-                                                text = memoText,
+                                                text = memo.title,
                                                 style = TextStyle(
                                                     fontSize = 9.sp,
                                                     color = ColorProvider(day = Color.White, night = Color.White)
                                                 ),
                                                 maxLines = 1
+                                            )
+                                        }
+                                        if (memos.size > 1) {
+                                            Text(
+                                                text = "메모 : ${memos.size}",
+                                                style = TextStyle(
+                                                    fontSize = 8.sp,
+                                                    color = ColorProvider(
+                                                        day = Color(0xFF757575),
+                                                        night = Color(0xFF9E9E9E)
+                                                    )
+                                                )
                                             )
                                         }
                                     }

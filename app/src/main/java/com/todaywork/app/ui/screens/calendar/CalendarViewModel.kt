@@ -18,7 +18,7 @@ data class CalendarUiState(
     val days: List<DayInfo>  = emptyList(),
     val selectedDate: LocalDate? = null,
     val isLoading: Boolean   = false,
-    val showLunar: Boolean   = true,
+    val showLunar: Boolean   = false,
     val showHoliday: Boolean = true,
     val patterns: List<ShiftPatternEntity> = emptyList()
 )

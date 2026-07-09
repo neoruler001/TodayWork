@@ -157,6 +157,7 @@ fun CalendarScreen(
                     onResetShift = viewModel::resetDateToPattern,
                     onAddMemo = viewModel::addMemo,
                     onDeleteMemo = viewModel::deleteMemo,
+                    onUpdateMemo = viewModel::updateMemo,
                     onDismiss = {
                         showDaySheet = false
                         viewModel.clearSelection()
@@ -456,8 +457,8 @@ private fun CalendarCell(
                 ) {
                     Text(
                         text = displayText,
-                        fontSize = 9.sp,
-                        lineHeight = 9.sp,
+                        fontSize = 11.sp,
+                        lineHeight = 11.sp,
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -479,12 +480,14 @@ private fun DayDetailFullScreen(
     onResetShift: (LocalDate) -> Unit,
     onAddMemo: (LocalDate, String, Long, Int, Int, Boolean) -> Unit,
     onDeleteMemo: (Long) -> Unit,
+    onUpdateMemo: (Long, LocalDate, String, Long, Int, Int, Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     var currentDate by remember { mutableStateOf(initialDayInfo.date) }
     var selectedTab by remember { mutableIntStateOf(0) }
     var showWorkEditDialog by remember { mutableStateOf(false) }
     var showMemoAddDialog by remember { mutableStateOf(false) }
+    var editingMemo by remember { mutableStateOf<MemoItem?>(null) }
     var swipeDelta by remember { mutableFloatStateOf(0f) }
 
     // Load month when navigating to a different month
@@ -659,6 +662,7 @@ private fun DayDetailFullScreen(
                     memos = dayInfo.memos,
                     onAddClick = { showMemoAddDialog = true },
                     onDelete = onDeleteMemo,
+                    onEdit = { editingMemo = it },
                     modifier = Modifier.fillMaxWidth().weight(1f)
                 )
                 1 -> WorkTabContent(
@@ -692,6 +696,24 @@ private fun DayDetailFullScreen(
             onDismiss = { showMemoAddDialog = false }
         )
     }
+
+    editingMemo?.let { memo ->
+        MemoEditDialog(
+            dialogTitle = "메모 수정",
+            initialTitle = memo.title,
+            initialColorHex = memo.colorHex,
+            initialIsAllDay = memo.isAllDay,
+            initialStartHour = if (memo.startTimeMinutes >= 0) memo.startTimeMinutes / 60 else 8,
+            initialStartMin = if (memo.startTimeMinutes >= 0) memo.startTimeMinutes % 60 else 0,
+            initialEndHour = if (memo.endTimeMinutes >= 0) memo.endTimeMinutes / 60 else 9,
+            initialEndMin = if (memo.endTimeMinutes >= 0) memo.endTimeMinutes % 60 else 0,
+            onSave = { title, colorHex, startMin, endMin, isAllDay ->
+                onUpdateMemo(memo.id, currentDate, title, colorHex, startMin, endMin, isAllDay)
+                editingMemo = null
+            },
+            onDismiss = { editingMemo = null }
+        )
+    }
 }
 
 // ── 메모 탭 ───────────────────────────────────────────────────
@@ -700,6 +722,7 @@ private fun MemoTabContent(
     memos: List<MemoItem>,
     onAddClick: () -> Unit,
     onDelete: (Long) -> Unit,
+    onEdit: (MemoItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -708,7 +731,7 @@ private fun MemoTabContent(
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
         items(memos) { memo ->
-            MemoCard(memo = memo, onDelete = { onDelete(memo.id) })
+            MemoCard(memo = memo, onDelete = { onDelete(memo.id) }, onEdit = { onEdit(memo) })
         }
         item {
             Row(
@@ -735,7 +758,7 @@ private fun MemoTabContent(
 }
 
 @Composable
-private fun MemoCard(memo: MemoItem, onDelete: () -> Unit) {
+private fun MemoCard(memo: MemoItem, onDelete: () -> Unit, onEdit: () -> Unit) {
     var showMenu by remember { mutableStateOf(false) }
 
     Box(
@@ -765,6 +788,13 @@ private fun MemoCard(memo: MemoItem, onDelete: () -> Unit) {
                 Icon(Icons.Default.MoreVert, null, tint = Color.White, modifier = Modifier.size(18.dp))
             }
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                DropdownMenuItem(
+                    text = { Text("수정") },
+                    onClick = { showMenu = false; onEdit() },
+                    leadingIcon = {
+                        Icon(Icons.Default.Edit, null)
+                    }
+                )
                 DropdownMenuItem(
                     text = { Text("삭제") },
                     onClick = { showMenu = false; onDelete() },
@@ -825,22 +855,28 @@ private fun SalaryTabContent(modifier: Modifier = Modifier) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MemoEditDialog(
+    dialogTitle: String = "새 메모",
     initialTitle: String = "",
     initialColorHex: Long = MEMO_COLORS[0],
+    initialIsAllDay: Boolean = true,
+    initialStartHour: Int = 8,
+    initialStartMin: Int = 0,
+    initialEndHour: Int = 9,
+    initialEndMin: Int = 0,
     onSave: (title: String, colorHex: Long, startMin: Int, endMin: Int, isAllDay: Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     var title by remember { mutableStateOf(initialTitle) }
     var selectedColor by remember { mutableLongStateOf(initialColorHex) }
-    var isAllDay by remember { mutableStateOf(true) }
-    var startHour by remember { mutableIntStateOf(8) }
-    var startMin by remember { mutableIntStateOf(0) }
-    var endHour by remember { mutableIntStateOf(9) }
-    var endMin by remember { mutableIntStateOf(0) }
+    var isAllDay by remember { mutableStateOf(initialIsAllDay) }
+    var startHour by remember { mutableIntStateOf(initialStartHour) }
+    var startMin by remember { mutableIntStateOf(initialStartMin) }
+    var endHour by remember { mutableIntStateOf(initialEndHour) }
+    var endMin by remember { mutableIntStateOf(initialEndMin) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("새 메모") },
+        title = { Text(dialogTitle) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextField(

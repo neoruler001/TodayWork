@@ -19,7 +19,7 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 data class SettingsUiState(
-    val showLunar: Boolean       = true,
+    val showLunar: Boolean       = false,
     val showHoliday: Boolean     = true,
     val darkMode: Boolean        = false,
     val startMonday: Boolean     = false,
