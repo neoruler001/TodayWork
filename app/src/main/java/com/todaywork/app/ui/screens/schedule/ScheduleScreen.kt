@@ -3,7 +3,6 @@ package com.todaywork.app.ui.screens.schedule
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -189,11 +188,11 @@ private fun PatternCard(
         modifier = Modifier.fillMaxWidth(),
         colors   = CardDefaults.cardColors(
             containerColor = if (isActive)
-                MaterialTheme.colorScheme.secondaryContainer
+                Color(0xFFFFFDE7)
             else MaterialTheme.colorScheme.surface
         ),
         border   = if (isActive)
-            BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
+            BorderStroke(1.dp, Color(0xFFFFEE58))
         else null,
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -264,11 +263,11 @@ fun ShiftCycleRow(cycles: List<ShiftType>, modifier: Modifier = Modifier) {
             Box(
                 modifier = Modifier
                     .size(28.dp)
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(4.dp))
                     .background(type.toColor()),
                 contentAlignment = Alignment.Center
             ) {
-                Text(type.shortLabel, fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                Text(type.shortLabel, fontSize = 10.sp, color = type.badgeTextColor(), fontWeight = FontWeight.Bold)
             }
         }
         Text(
@@ -342,7 +341,8 @@ private fun AddPatternDialog(
                             OutlinedButton(
                                 onClick = { cycles = cycles + type },
                                 contentPadding = PaddingValues(4.dp),
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(40.dp),
+                                shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(type.shortLabel, fontSize = 10.sp)
                             }
