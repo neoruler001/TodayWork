@@ -1,5 +1,7 @@
 package com.todaywork.app.ui.navigation
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -9,6 +11,7 @@ import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
@@ -46,6 +49,32 @@ private val bottomNavItems = listOf(
 fun AppNavigation(windowSizeClass: WindowSizeClass, initialDateStr: String? = null) {
     val navController = rememberNavController()
     val isCompact = windowSizeClass.widthSizeClass == WindowWidthSizeClass.Compact
+    val context = LocalContext.current
+    var showExitDialog by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = true) {
+        showExitDialog = true
+    }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("앱 종료") },
+            text = { Text("앱을 종료하시겠습니까?") },
+            confirmButton = {
+                Button(
+                    onClick = { (context as? Activity)?.finish() }
+                ) {
+                    Text("앱 종료")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
 
     if (isCompact) {
         // ── 폰: BottomNavigation ──────────────────────────────
