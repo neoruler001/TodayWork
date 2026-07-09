@@ -224,7 +224,7 @@ class CalendarWidget : GlanceAppWidget() {
                                                 text = memo.title,
                                                 style = TextStyle(
                                                     fontSize = 9.sp,
-                                                    color = ColorProvider(day = Color.White, night = Color.White)
+                                                    color = ColorProvider(day = Color(0xFF333333), night = Color(0xFF333333))
                                                 ),
                                                 maxLines = 1
                                             )

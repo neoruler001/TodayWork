@@ -711,6 +711,10 @@ private fun DayDetailFullScreen(
                 onUpdateMemo(memo.id, currentDate, title, colorHex, startMin, endMin, isAllDay)
                 editingMemo = null
             },
+            onDelete = {
+                onDeleteMemo(memo.id)
+                editingMemo = null
+            },
             onDismiss = { editingMemo = null }
         )
     }
@@ -851,7 +855,7 @@ private fun SalaryTabContent(modifier: Modifier = Modifier) {
     }
 }
 
-// ── 메모 추가 다이얼로그 ──────────────────────────────────────
+// ── 메모 추가/수정 다이얼로그 (t.jpeg / m.jpeg 레이아웃 완벽 매핑) ──────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MemoEditDialog(
@@ -864,6 +868,7 @@ private fun MemoEditDialog(
     initialEndHour: Int = 9,
     initialEndMin: Int = 0,
     onSave: (title: String, colorHex: Long, startMin: Int, endMin: Int, isAllDay: Boolean) -> Unit,
+    onDelete: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     var title by remember { mutableStateOf(initialTitle) }
@@ -874,91 +879,540 @@ private fun MemoEditDialog(
     var endHour by remember { mutableIntStateOf(initialEndHour) }
     var endMin by remember { mutableIntStateOf(initialEndMin) }
 
-    AlertDialog(
+    // 설정 항목용 추가 State
+    var urlText by remember { mutableStateOf("") }
+    var isTodo by remember { mutableStateOf(false) }
+    var showColorPicker by remember { mutableStateOf(false) }
+    var showStartPicker by remember { mutableStateOf(false) }
+    var showEndPicker by remember { mutableStateOf(false) }
+
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        title = { Text(dialogTitle) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    placeholder = { Text("메모 제목", color = Color.White.copy(alpha = 0.6f)) },
-                    singleLine = true,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color(selectedColor),
-                        unfocusedContainerColor = Color(selectedColor),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = Color.White,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    ),
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = Color.White
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // 1. 상단 바
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                )
-
-                Text("색상", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MEMO_COLORS.forEach { color ->
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(Color(color))
-                                .then(
-                                    if (color == selectedColor)
-                                        Modifier.border(2.dp, MaterialTheme.colorScheme.onBackground, CircleShape)
-                                    else Modifier
-                                )
-                                .clickable { selectedColor = color }
+                        .height(56.dp)
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
+                            contentDescription = "뒤로가기",
+                            tint = Color(0xFF1E1E1E)
+                        )
+                    }
+                    Text(
+                        text = "메모",
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center,
+                        style = TextStyle(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = Color(0xFF1E1E1E)
+                        )
+                    )
+                    TextButton(
+                        onClick = {
+                            if (title.isNotBlank()) {
+                                val sm = if (isAllDay) -1 else startHour * 60 + startMin
+                                val em = if (isAllDay) -1 else endHour * 60 + endMin
+                                onSave(title.trim(), selectedColor, sm, em, isAllDay)
+                            }
+                        }
+                    ) {
+                        Text(
+                            "저장",
+                            style = TextStyle(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color(0xFF1976D2)
+                            )
                         )
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                // 2. 본문 영역 (광고 배너 영역 제외)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    Text("하루 종일", style = MaterialTheme.typography.bodyMedium)
-                    Switch(checked = isAllDay, onCheckedChange = { isAllDay = it })
+                    // 메모 입력창 (선택된 색상이 입력창 배경에 연하게 반영됨)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(selectedColor).copy(alpha = 0.15f))
+                            .border(1.dp, Color(selectedColor).copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        BasicTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 100.dp),
+                            textStyle = TextStyle(fontSize = 16.sp, color = Color(0xFF1E1E1E)),
+                            decorationBox = { innerTextField ->
+                                if (title.isEmpty()) {
+                                    Text("메모", color = Color(0xFF9E9E9E), fontSize = 16.sp)
+                                }
+                                innerTextField()
+                            }
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // 색상 선택 Row
+                    SettingsRow(
+                        label = "색",
+                        onClick = { showColorPicker = true }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "A",
+                                    style = TextStyle(
+                                        textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                        color = Color(0xFF757575)
+                                    )
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = androidx.compose.material.icons.Icons.Default.Close,
+                                    contentDescription = null,
+                                    tint = Color(0xFFD5D5D5),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = androidx.compose.material.icons.Icons.Default.Palette,
+                                    contentDescription = null,
+                                    tint = Color(0xFF757575),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(selectedColor))
+                                        .border(1.dp, Color.LightGray, CircleShape)
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
+
+                    // URL Row
+                    SettingsRow(label = "URL") {
+                        BasicTextField(
+                            value = urlText,
+                            onValueChange = { urlText = it },
+                            modifier = Modifier.width(180.dp),
+                            textStyle = TextStyle(fontSize = 14.sp, color = Color(0xFF1E1E1E), textAlign = TextAlign.End),
+                            decorationBox = { innerTextField ->
+                                if (urlText.isEmpty()) {
+                                    Text("http://", color = Color(0xFFD5D5D5), fontSize = 14.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End)
+                                }
+                                innerTextField()
+                            }
+                        )
+                    }
+
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
+
+                    // 사진 Row
+                    SettingsRow(label = "사진") {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Image,
+                            contentDescription = null,
+                            tint = Color(0xFF9E9E9E)
+                        )
+                    }
+
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
+
+                    // 할 일 Row
+                    SettingsRow(
+                        leadingIcon = {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF757575)
+                            )
+                        },
+                        label = "할 일"
+                    ) {
+                        Switch(
+                            checked = isTodo,
+                            onCheckedChange = { isTodo = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF1976D2)
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
+
+                    // 라벨 Row
+                    SettingsRow(
+                        leadingIcon = {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Label,
+                                contentDescription = null,
+                                tint = Color(0xFF757575),
+                                modifier = Modifier.rotate(45f)
+                            )
+                        },
+                        label = "라벨"
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFF1976D2))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text("기본", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // 기간 섹션 타이틀
+                    Text(
+                        text = "기간",
+                        color = Color(0xFF1976D2),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+
+                    // 하루 종일 Row
+                    SettingsRow(label = "하루 종일") {
+                        Switch(
+                            checked = isAllDay,
+                            onCheckedChange = { isAllDay = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF1976D2)
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
+
+                    // 시작일 Row
+                    SettingsRow(
+                        label = "시작일",
+                        onClick = { showStartPicker = !showStartPicker; showEndPicker = false }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("2026.07.07", fontSize = 15.sp, color = Color(0xFF1E1E1E))
+                            if (!isAllDay) {
+                                VerticalDivider(modifier = Modifier.height(12.dp), color = Color.LightGray)
+                                Text(
+                                    text = "%02d:%02d".format(startHour, startMin),
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF1E1E1E)
+                                )
+                            }
+                        }
+                    }
+
+                    if (showStartPicker && !isAllDay) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                            com.todaywork.app.ui.components.WheelTimePicker(
+                                initialHour = startHour,
+                                initialMinute = startMin,
+                                onTimeSelected = { h, m -> startHour = h; startMin = m }
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
+
+                    // 종료일 Row
+                    SettingsRow(
+                        label = "종료일",
+                        onClick = { showEndPicker = !showEndPicker; showStartPicker = false }
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("2026.07.07", fontSize = 15.sp, color = Color(0xFF1E1E1E))
+                            if (!isAllDay) {
+                                VerticalDivider(modifier = Modifier.height(12.dp), color = Color.LightGray)
+                                Text(
+                                    text = "%02d:%02d".format(endHour, endMin),
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF1E1E1E)
+                                )
+                            }
+                        }
+                    }
+
+                    if (showEndPicker && !isAllDay) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                            com.todaywork.app.ui.components.WheelTimePicker(
+                                initialHour = endHour,
+                                initialMinute = endMin,
+                                onTimeSelected = { h, m -> endHour = h; endMin = m }
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
+
+                    // 알림 Row
+                    SettingsRow(
+                        leadingIcon = {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = Color(0xFF757575)
+                            )
+                        },
+                        label = "알림"
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.AddCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF9E9E9E),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // 반복 섹션 타이틀
+                    Text(
+                        text = "반복",
+                        color = Color(0xFF1976D2),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+
+                    // 근무에 반복
+                    SettingsRow(label = "근무에 반복") {
+                        Switch(checked = false, onCheckedChange = {}, enabled = false)
+                    }
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
+
+                    // 요일에 반복
+                    SettingsRow(label = "요일에 반복") {
+                        Switch(checked = false, onCheckedChange = {}, enabled = false)
+                    }
+                    HorizontalDivider(color = Color(0xFFEEEEEE))
+
+                    // 날짜에 반복
+                    SettingsRow(label = "날짜에 반복") {
+                        Switch(checked = false, onCheckedChange = {}, enabled = false)
+                    }
+
+                    // 삭제 버튼 (수정 모드일 때 노출)
+                    if (onDelete != null) {
+                        Spacer(Modifier.height(24.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onDelete(); onDismiss() }
+                                .padding(vertical = 16.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = Color(0xFFE53935)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "삭제",
+                                color = Color(0xFFE53935),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 색상 선택 BottomSheet (m.jpeg 레이아웃 완벽 이식)
+    if (showColorPicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showColorPicker = false },
+            containerColor = Color.White
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            ) {
+                Text(
+                    text = "기본 색상",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color(0xFF1E1E1E)
+                )
+
+                // 19종 색상 그리드 (5열 배치)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    val rows = (MEMO_COLORS.size + 4) / 5
+                    for (r in 0 until rows) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            for (c in 0 until 5) {
+                                val idx = r * 5 + c
+                                if (idx < MEMO_COLORS.size) {
+                                    val color = MEMO_COLORS[idx]
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(color))
+                                            .then(
+                                                if (color == selectedColor) {
+                                                    Modifier.border(3.dp, Color(0xFF1976D2), CircleShape)
+                                                } else {
+                                                    Modifier.border(1.dp, Color.LightGray.copy(alpha = 0.5f), CircleShape)
+                                                }
+                                            )
+                                            .clickable {
+                                                selectedColor = color
+                                                showColorPicker = false
+                                            }
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.size(46.dp))
+                                }
+                            }
+                        }
+                    }
                 }
 
-                if (!isAllDay) {
-                    com.todaywork.app.ui.components.WheelTimePicker(
-                        initialHour = startHour,
-                        initialMinute = startMin,
-                        onTimeSelected = { h, m -> startHour = h; startMin = m },
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text("종료 시간 설정",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                    com.todaywork.app.ui.components.WheelTimePicker(
-                        initialHour = endHour,
-                        initialMinute = endMin,
-                        onTimeSelected = { h, m -> endHour = h; endMin = m },
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider(color = Color(0xFFEEEEEE))
+                Spacer(Modifier.height(16.dp))
+
+                // 사용자 색상 타이틀
+                Text(
+                    text = "사용자 색상 (길게 누르면 편집)",
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    fontSize = 14.sp,
+                    color = Color(0xFF757575)
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                // 사용자 색상 (+) 추가 버튼
+                Row(
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF5F5F5))
+                            .border(1.dp, Color.LightGray, CircleShape)
+                            .clickable { /* 사용자 색상 다이얼로그 연동 가능 */ },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Add,
+                            contentDescription = null,
+                            tint = Color(0xFF757575)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // 닫기 버튼
+                TextButton(
+                    onClick = { showColorPicker = false },
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(end = 24.dp)
+                ) {
+                    Text(
+                        "닫기",
+                        color = Color(0xFF1976D2),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
                     )
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (title.isNotBlank()) {
-                        val sm = if (isAllDay) -1 else startHour * 60 + startMin
-                        val em = if (isAllDay) -1 else endHour * 60 + endMin
-                        onSave(title.trim(), selectedColor, sm, em, isAllDay)
-                    }
-                }
-            ) { Text("저장") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
-    )
+        }
+    }
+}
+
+// 공통 설정 Row 컴포넌트
+@Composable
+private fun SettingsRow(
+    leadingIcon: @Composable (() -> Unit)? = null,
+    label: String,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (leadingIcon != null) {
+            leadingIcon()
+            Spacer(Modifier.width(12.dp))
+        }
+        Text(
+            text = label,
+            fontSize = 15.sp,
+            color = Color(0xFF1E1E1E),
+            modifier = Modifier.weight(1f)
+        )
+        content()
+    }
 }
 
 // ── 근무 수정 다이얼로그 ──────────────────────────────────────

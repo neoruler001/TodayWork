@@ -10,7 +10,7 @@ enum class ShiftType(
     val defaultEndHour: Int,
     val defaultEndMin: Int
 ) {
-    DAY("주간", "주", 0xFF81C784, true, 7, 0, 19, 0),
+    DAY("주간", "주", 0xFFBFE548, true, 7, 0, 19, 0),
     NIGHT("야간", "야", 0xFF37474F, true, 19, 0, 7, 0),
     REST("휴무", "휴", 0xFFE53935, false, 0, 0, 0, 0),
     OFF("비번", "비", 0xFF757575, false, 0, 0, 0, 0),
