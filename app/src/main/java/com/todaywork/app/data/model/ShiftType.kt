@@ -20,7 +20,7 @@ enum class ShiftType(
     ANNUAL("연차", "연", 0xFFD84315, false, 0, 0, 0, 0),
     HOLIDAY("공휴일", "공", 0xFFC62828, false, 0, 0, 0, 0),
     CUSTOM("기타", "기", 0xFFE65100, true, 9, 0, 18, 0),
-    HEALTH_OFF("휴무(보건)", "휴", 0xFF00ACC1, false, 0, 0, 0, 0);
+    HEALTH_OFF("휴무(보건)", "휴-보", 0xFF00ACC1, false, 0, 0, 0, 0);
 
     val isLightBadge: Boolean get() {
         val r = ((colorHex shr 16) and 0xFF).toFloat() / 255f

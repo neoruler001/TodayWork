@@ -1572,11 +1572,21 @@ private fun WorkEditDialog(
                         modifier = Modifier.menuAnchor().fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors()
                     )
+                    val sortedShifts = remember {
+                        val priority = listOf(
+                            ShiftType.DAY,
+                            ShiftType.NIGHT,
+                            ShiftType.REST,
+                            ShiftType.HEALTH_OFF
+                        )
+                        val others = ShiftType.entries.filter { it !in priority }
+                        priority + others
+                    }
                     ExposedDropdownMenu(
                         expanded = typeExpanded,
                         onDismissRequest = { typeExpanded = false }
                     ) {
-                        ShiftType.entries.forEach { type ->
+                        sortedShifts.forEach { type ->
                             DropdownMenuItem(
                                 text = {
                                     Row(
