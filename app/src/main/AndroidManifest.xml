@@ -32,6 +32,12 @@
             android:taskAffinity=""
             android:exported="true" />
 
+        <activity
+            android:name=".ui.WidgetSettingsActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:launchMode="singleTop" />
+
         <!-- 위젯 수신자 -->
         <receiver
             android:name=".widget.CalendarWidgetReceiver"
