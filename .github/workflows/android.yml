@@ -22,10 +22,23 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Restore debug keystore
+      - name: Cache debug keystore
+        id: cache-keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: debug-keystore-stable-v1
+
+      - name: Create debug keystore if not cached
+        if: steps.cache-keystore.outputs.cache-hit != 'true'
         run: |
           mkdir -p ~/.android
-          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > ~/.android/debug.keystore
+          keytool -genkey -v \
+            -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Grant execute permission
         run: chmod +x gradlew
