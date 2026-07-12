@@ -10,6 +10,7 @@ import androidx.glance.*
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
@@ -33,6 +34,8 @@ import dagger.hilt.components.SingletonComponent
 import java.time.LocalDate
 
 class CalendarWidget : GlanceAppWidget() {
+
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)

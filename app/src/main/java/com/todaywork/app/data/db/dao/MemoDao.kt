@@ -23,4 +23,7 @@ interface MemoDao {
 
     @Query("DELETE FROM memos WHERE dateEpoch = :dateEpoch")
     suspend fun deleteMemosForDate(dateEpoch: Long)
+
+    @Query("SELECT * FROM memos ORDER BY dateEpoch ASC, id ASC")
+    suspend fun getAllMemos(): List<MemoEntity>
 }

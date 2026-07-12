@@ -24,4 +24,7 @@ interface AlarmSettingDao {
 
     @Delete
     suspend fun delete(alarm: AlarmSettingEntity)
+
+    @Query("SELECT * FROM alarm_settings ORDER BY minutesBefore DESC")
+    suspend fun getAllAlarmsSync(): List<AlarmSettingEntity>
 }

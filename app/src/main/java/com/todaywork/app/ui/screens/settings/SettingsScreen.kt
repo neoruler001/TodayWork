@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.todaywork.app.data.db.entity.AlarmSettingEntity
 import com.todaywork.app.data.model.ShiftType
+import com.todaywork.app.util.BackupManager
 import java.time.LocalDate
 
 @Composable
@@ -32,6 +33,14 @@ fun SettingsScreen(
     val icsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { /* 결과 처리 불필요 */ }
+
+    val backupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { viewModel.exportBackup(it) } }
+
+    val restoreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { viewModel.requestRestore(it) } }
 
     Scaffold(
         topBar = {
@@ -135,6 +144,56 @@ fun SettingsScreen(
                 }
             }
 
+            // ── 백업 / 복원 ────────────────────────────────────
+            SettingSection("백업 / 복원") {
+                Text(
+                    text  = "근무 패턴, 근무 기록, 메모, 알람 설정을 JSON 파일로 백업하거나 복원합니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = { backupLauncher.launch(BackupManager.suggestedFileName()) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isBackupInProgress
+                ) {
+                    if (uiState.isBackupInProgress) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary)
+                    } else {
+                        Icon(Icons.Default.CloudUpload, null, Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text("백업 파일 저장")
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = { restoreLauncher.launch(arrayOf("application/json", "*/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isBackupInProgress
+                ) {
+                    Icon(Icons.Default.CloudDownload, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("백업 파일 불러오기")
+                }
+
+                uiState.backupStatus?.let { msg ->
+                    LaunchedEffect(msg) { viewModel.clearBackupStatus() }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text  = msg,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (msg.contains("실패"))
+                            MaterialTheme.colorScheme.error
+                        else
+                            MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
             // ── 앱 정보 ────────────────────────────────────────
             SettingSection("앱 정보") {
                 InfoRow("버전", "1.0.0")
@@ -144,6 +203,21 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    // ── 복원 확인 다이얼로그 ─────────────────────────────────
+    if (uiState.showRestoreConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelRestore,
+            title = { Text("백업 복원") },
+            text  = { Text("백업 파일의 데이터를 불러옵니다.\n기존 데이터와 병합되며 충돌 시 백업 데이터로 덮어씁니다.\n계속하시겠습니까?") },
+            confirmButton = {
+                Button(onClick = viewModel::confirmRestore) { Text("복원") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelRestore) { Text("취소") }
+            }
+        )
     }
 
     // ── 알람 추가 다이얼로그 ──────────────────────────────────

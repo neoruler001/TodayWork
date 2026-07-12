@@ -36,4 +36,7 @@ interface WorkRecordDao {
 
     @Query("SELECT COUNT(*) FROM work_records WHERE shiftTypeName IN (:types) AND dateEpoch BETWEEN :startEpoch AND :endEpoch")
     suspend fun countByTypesAndRange(types: List<String>, startEpoch: Long, endEpoch: Long): Int
+
+    @Query("SELECT * FROM work_records ORDER BY dateEpoch ASC")
+    suspend fun getAllWorkRecords(): List<WorkRecordEntity>
 }

@@ -33,4 +33,7 @@ interface ShiftPatternDao {
 
     @Query("DELETE FROM shift_patterns WHERE id = :id")
     suspend fun deletePatternById(id: Long)
+
+    @Query("SELECT * FROM shift_patterns ORDER BY createdAt ASC")
+    suspend fun getAllPatternsSync(): List<ShiftPatternEntity>
 }
