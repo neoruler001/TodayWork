@@ -57,7 +57,7 @@ fun Preferences.toWidgetSettings() = WidgetSettings(
     displayMonth  = this[WidgetPrefKeys.DISPLAY_MONTH]   ?: LocalDate.now().monthValue,
 )
 
-suspend fun Preferences.MutationScope.applyWidgetSettings(s: WidgetSettings) {
+fun MutablePreferences.applyWidgetSettings(s: WidgetSettings) {
     this[WidgetPrefKeys.BG_ALPHA]        = s.bgAlpha
     this[WidgetPrefKeys.BG_COLOR]        = s.bgColor
     this[WidgetPrefKeys.FONT_SIZE_LARGE] = s.fontSizeLarge
