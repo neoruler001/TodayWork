@@ -110,16 +110,18 @@ private fun WidgetContent(
     val dividerColor  = if (isNight) Color(0xFF424242) else Color(0xFFE0E0E0)
 
     val large       = settings.fontSizeLarge
-    val headerSp    = if (large) 17.sp else 15.sp
-    val weekDaySp   = if (large) 12.sp else 10.sp
-    val dateSp      = when (settings.dateSize) { 1 -> 10.sp; 3 -> 14.sp; else -> 12.sp }
-    val badgeDp     = when (settings.workSize) { 1 -> 20.dp; 3 -> 28.dp; else -> 24.dp }
-    val badgeTextSp = when (settings.workSize) { 1 -> 9.sp;  3 -> 13.sp; else -> 11.sp }
-    val memoSp      = when (settings.memoSize) { 1 -> 7.sp;  3 -> 10.sp; else -> 8.sp }
+    val headerSp    = if (large) 20.sp else 17.sp
+    val weekDaySp   = if (large) 15.sp else 13.sp
+    val dateSp      = when (settings.dateSize) { 1 -> 12.sp; 3 -> 18.sp; else -> 15.sp }
+    val badgeDp     = when (settings.workSize) { 1 -> 24.dp; 3 -> 36.dp; else -> 30.dp }
+    val badgeTextSp = when (settings.workSize) { 1 -> 11.sp; 3 -> 16.sp; else -> 13.sp }
+    val memoSp      = when (settings.memoSize) { 1 -> 9.sp;  3 -> 13.sp; else -> 11.sp }
 
     // 행 높이 명시 계산 (defaultWeight가 구형 기기에서 불안정)
-    val headerRowH  = if (large) 40.dp else 36.dp
-    val weekRowH    = if (large) 28.dp else 22.dp
+    // 헤더 버튼 터치 영역이 44dp이므로 헤더 행은 반드시 그 이상이어야 함
+    // (모자라면 버튼이 아래 요일 행까지 겹쳐 그려져 탭이 엉뚱한 곳으로 감)
+    val headerRowH  = if (large) 52.dp else 48.dp
+    val weekRowH    = if (large) 34.dp else 28.dp
     val divH        = if (settings.showDivider) 1.dp else 0.dp
     val fixedH      = headerRowH + weekRowH + divH * (rows + 1).toFloat()
     val calH        = size.height - fixedH - 12.dp  // 12dp = 위아래 padding
@@ -344,7 +346,7 @@ private fun WidgetContent(
                                             Text(
                                                 text  = dayInfo.lunarDay,
                                                 style = TextStyle(
-                                                    fontSize = 7.sp,
+                                                    fontSize = memoSp,
                                                     color    = ColorProvider(day = textSecondary, night = textSecondary)
                                                 )
                                             )
