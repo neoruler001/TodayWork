@@ -110,7 +110,7 @@ private fun WidgetContent(
     val dividerColor  = if (isNight) Color(0xFF424242) else Color(0xFFE0E0E0)
 
     val large       = settings.fontSizeLarge
-    val headerSp    = if (large) 20.sp else 17.sp
+    val headerSp    = if (large) 24.sp else 20.sp
     val weekDaySp   = if (large) 15.sp else 13.sp
     val dateSp      = when (settings.dateSize) { 1 -> 12.sp; 3 -> 18.sp; else -> 15.sp }
     val badgeDp     = when (settings.workSize) { 1 -> 24.dp; 3 -> 36.dp; else -> 30.dp }
@@ -162,54 +162,57 @@ private fun WidgetContent(
                     )
                 }
 
-                // 이전달 버튼
-                Box(
-                    modifier = GlanceModifier
-                        .size(44.dp)
-                        .clickable(
-                            actionRunCallback<MonthChangeCallback>(
-                                actionParametersOf(MonthChangeCallback.deltaKey to -1)
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
+                // 중앙 그룹: 이전달 · 년월 · 다음달 (가운데 정렬)
+                Row(
+                    modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Image(
-                        provider = ImageProvider(R.drawable.ic_w_prev),
-                        contentDescription = "이전달",
-                        modifier = GlanceModifier.size(26.dp)
+                    Box(
+                        modifier = GlanceModifier
+                            .size(44.dp)
+                            .clickable(
+                                actionRunCallback<MonthChangeCallback>(
+                                    actionParametersOf(MonthChangeCallback.deltaKey to -1)
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            provider = ImageProvider(R.drawable.ic_w_prev),
+                            contentDescription = "이전달",
+                            modifier = GlanceModifier.size(26.dp)
+                        )
+                    }
+
+                    Text(
+                        text = "$year. ${month.toString().padStart(2, '0')}",
+                        style = TextStyle(
+                            fontWeight = FontWeight.Bold,
+                            fontSize   = headerSp,
+                            color      = ColorProvider(day = textPrimary, night = textPrimary)
+                        )
                     )
+
+                    Box(
+                        modifier = GlanceModifier
+                            .size(44.dp)
+                            .clickable(
+                                actionRunCallback<MonthChangeCallback>(
+                                    actionParametersOf(MonthChangeCallback.deltaKey to 1)
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            provider = ImageProvider(R.drawable.ic_w_next),
+                            contentDescription = "다음달",
+                            modifier = GlanceModifier.size(26.dp)
+                        )
+                    }
                 }
 
-                // 년월 텍스트
-                Text(
-                    text = "$year. ${month.toString().padStart(2, '0')}",
-                    modifier = GlanceModifier.defaultWeight(),
-                    style = TextStyle(
-                        fontWeight = FontWeight.Bold,
-                        fontSize   = headerSp,
-                        color      = ColorProvider(day = textPrimary, night = textPrimary)
-                    )
-                )
-
-                // 다음달 버튼
-                Box(
-                    modifier = GlanceModifier
-                        .size(44.dp)
-                        .clickable(
-                            actionRunCallback<MonthChangeCallback>(
-                                actionParametersOf(MonthChangeCallback.deltaKey to 1)
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        provider = ImageProvider(R.drawable.ic_w_next),
-                        contentDescription = "다음달",
-                        modifier = GlanceModifier.size(26.dp)
-                    )
-                }
-
-                // 새로고침 버튼
+                // 새로고침 버튼: 오늘이 포함된 월로 이동
                 Box(
                     modifier = GlanceModifier
                         .size(44.dp)
@@ -218,7 +221,7 @@ private fun WidgetContent(
                 ) {
                     Image(
                         provider = ImageProvider(R.drawable.ic_w_refresh),
-                        contentDescription = "새로고침",
+                        contentDescription = "오늘로 이동",
                         modifier = GlanceModifier.size(26.dp)
                     )
                 }

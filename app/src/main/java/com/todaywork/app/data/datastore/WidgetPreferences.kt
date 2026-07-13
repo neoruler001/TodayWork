@@ -89,6 +89,14 @@ suspend fun Context.shiftWidgetMonth(delta: Int) {
     }
 }
 
+suspend fun Context.resetWidgetMonthToToday() {
+    val today = LocalDate.now()
+    widgetDataStore.edit { p ->
+        p[WidgetPrefKeys.DISPLAY_YEAR]  = today.year
+        p[WidgetPrefKeys.DISPLAY_MONTH] = today.monthValue
+    }
+}
+
 // ── Hilt 주입용 싱글톤 (WidgetSettingsActivity에서 사용) ─────────
 @Singleton
 class WidgetPreferences @Inject constructor(

@@ -1,6 +1,7 @@
 package com.todaywork.app.widget
 
 import android.content.Context
+import android.util.Log
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
@@ -8,6 +9,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+
+private const val TAG = "CalendarWidget"
 
 class CalendarWidgetReceiver : GlanceAppWidgetReceiver() {
 
@@ -25,8 +28,11 @@ class CalendarWidgetReceiver : GlanceAppWidgetReceiver() {
             try {
                 val manager = GlanceAppWidgetManager(context)
                 val ids = manager.getGlanceIds(CalendarWidget::class.java)
+                Log.d(TAG, "onEnabled: updating ${ids.size} widget(s)")
                 ids.forEach { CalendarWidget().update(context, it) }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.e(TAG, "onEnabled update failed", e)
+            }
         }
     }
 }

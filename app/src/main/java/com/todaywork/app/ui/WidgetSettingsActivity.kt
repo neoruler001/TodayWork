@@ -1,6 +1,7 @@
 package com.todaywork.app.ui
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -33,6 +34,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val TAG = "CalendarWidget"
+
 @AndroidEntryPoint
 class WidgetSettingsActivity : ComponentActivity() {
 
@@ -52,8 +55,11 @@ class WidgetSettingsActivity : ComponentActivity() {
                             try {
                                 val manager = GlanceAppWidgetManager(this@WidgetSettingsActivity)
                                 val ids = manager.getGlanceIds(CalendarWidget::class.java)
+                                Log.d(TAG, "onSave: updating ${ids.size} widget(s)")
                                 ids.forEach { CalendarWidget().update(this@WidgetSettingsActivity, it) }
-                            } catch (_: Exception) {}
+                            } catch (e: Exception) {
+                                Log.e(TAG, "onSave update failed", e)
+                            }
                             finish()
                         }
                     },
