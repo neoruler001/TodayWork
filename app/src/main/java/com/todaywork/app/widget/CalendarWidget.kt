@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
@@ -21,6 +22,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import com.todaywork.app.R
+import com.todaywork.app.data.datastore.WidgetSettings
 import com.todaywork.app.data.datastore.getWidgetSettings
 import com.todaywork.app.data.model.DayInfo
 import com.todaywork.app.data.repository.ShiftRepository
@@ -34,7 +36,17 @@ import java.time.LocalDate
 
 class CalendarWidget : GlanceAppWidget() {
 
-    override val sizeMode: SizeMode = SizeMode.Exact
+    // Responsive: 여러 사이즈 미리 렌더링 → 구형 Android도 정상 표시
+    override val sizeMode = SizeMode.Responsive(
+        setOf(
+            DpSize(200.dp, 200.dp),
+            DpSize(200.dp, 320.dp),
+            DpSize(320.dp, 320.dp),
+            DpSize(320.dp, 450.dp),
+            DpSize(360.dp, 450.dp),
+            DpSize(360.dp, 600.dp),
+        )
+    )
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)
@@ -52,13 +64,13 @@ class CalendarWidget : GlanceAppWidget() {
         val year     = settings.displayYear
         val month    = settings.displayMonth
 
-        val days           = repo.getDayInfosForMonth(year, month)
-        val firstDay       = LocalDate.of(year, month, 1)
-        val startPad       = firstDay.dayOfWeek.value % 7  // 0=Sun
-        val rows           = (startPad + days.size + 6) / 7
+        val days             = repo.getDayInfosForMonth(year, month)
+        val firstDay         = LocalDate.of(year, month, 1)
+        val startPad         = firstDay.dayOfWeek.value % 7   // 일=0 ~ 토=6
+        val rows             = (startPad + days.size + 6) / 7
         val prevMonthLastDay = firstDay.minusMonths(1).lengthOfMonth()
-        val prevMonth      = if (month == 1) 12 else month - 1
-        val nextMonth      = if (month == 12) 1 else month + 1
+        val prevMonth        = if (month == 1) 12 else month - 1
+        val nextMonth        = if (month == 12) 1 else month + 1
 
         provideContent {
             WidgetContent(
@@ -81,7 +93,7 @@ class CalendarWidget : GlanceAppWidget() {
 @Composable
 private fun WidgetContent(
     context: Context,
-    settings: com.todaywork.app.data.datastore.WidgetSettings,
+    settings: WidgetSettings,
     year: Int,
     month: Int,
     today: LocalDate,
@@ -92,25 +104,38 @@ private fun WidgetContent(
     prevMonth: Int,
     nextMonth: Int,
 ) {
+    // LocalSize: SizeMode.Responsive가 제공하는 실제 렌더링 크기
+    val size = LocalSize.current
+
     val bgColorValue = when (settings.bgColor) {
         "black" -> Color(0xFF1C1C1C)
         "gray"  -> Color(0xFFF5F5F5)
         "blue"  -> Color(0xFFE3F2FD)
         else    -> Color.White
     }
-    val bgFinal        = bgColorValue.copy(alpha = settings.bgAlpha.coerceIn(0f, 1f))
-    val isNight        = settings.bgColor == "black"
-    val textPrimary    = if (isNight) Color(0xFFE0E0E0) else Color(0xFF212121)
-    val textSecondary  = if (isNight) Color(0xFF9E9E9E) else Color(0xFF757575)
-    val textDim        = if (isNight) Color(0xFF555555) else Color(0xFFBBBBBB)
-    val dividerColor   = if (isNight) Color(0xFF424242) else Color(0xFFE0E0E0)
+    val bgFinal       = bgColorValue.copy(alpha = settings.bgAlpha.coerceIn(0f, 1f))
+    val isNight       = settings.bgColor == "black"
+    val textPrimary   = if (isNight) Color(0xFFE0E0E0) else Color(0xFF212121)
+    val textSecondary = if (isNight) Color(0xFF9E9E9E) else Color(0xFF757575)
+    val textDim       = if (isNight) Color(0xFF555555) else Color(0xFFBBBBBB)
+    val dividerColor  = if (isNight) Color(0xFF424242) else Color(0xFFE0E0E0)
 
-    val headerSp    = if (settings.fontSizeLarge) 17.sp else 15.sp
-    val weekDaySp   = if (settings.fontSizeLarge) 12.sp else 10.sp
+    val large       = settings.fontSizeLarge
+    val headerSp    = if (large) 17.sp else 15.sp
+    val weekDaySp   = if (large) 12.sp else 10.sp
     val dateSp      = when (settings.dateSize) { 1 -> 10.sp; 3 -> 14.sp; else -> 12.sp }
     val badgeDp     = when (settings.workSize) { 1 -> 20.dp; 3 -> 28.dp; else -> 24.dp }
-    val badgeTextSp = when (settings.workSize) { 1 -> 9.sp; 3 -> 13.sp; else -> 11.sp }
-    val memoSp      = when (settings.memoSize) { 1 -> 7.sp; 3 -> 10.sp; else -> 8.sp }
+    val badgeTextSp = when (settings.workSize) { 1 -> 9.sp;  3 -> 13.sp; else -> 11.sp }
+    val memoSp      = when (settings.memoSize) { 1 -> 7.sp;  3 -> 10.sp; else -> 8.sp }
+
+    // 행 높이 명시 계산 (defaultWeight가 구형 기기에서 불안정)
+    val headerRowH  = if (large) 40.dp else 36.dp
+    val weekRowH    = if (large) 28.dp else 22.dp
+    val divH        = if (settings.showDivider) 1.dp else 0.dp
+    val fixedH      = headerRowH + weekRowH + divH * (rows + 2).toFloat()
+    val calH        = size.height - fixedH - 12.dp  // 12dp = 위아래 padding
+    val rowH        = if (rows > 0 && calH > 10.dp) (calH / rows).coerceIn(28.dp, 160.dp)
+                      else 40.dp
 
     val settingsIntent = Intent(context, WidgetSettingsActivity::class.java)
         .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
@@ -124,140 +149,173 @@ private fun WidgetContent(
     ) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
 
-            // ── 헤더 ─────────────────────────────────────────────
+            // ── 헤더 ────────────────────────────────────────────
             Row(
-                modifier = GlanceModifier.fillMaxWidth().padding(bottom = 4.dp),
+                modifier = GlanceModifier
+                    .fillMaxWidth()
+                    .height(headerRowH)
+                    .padding(bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Image(
-                    provider = ImageProvider(R.drawable.ic_w_settings),
-                    contentDescription = "설정",
-                    modifier = GlanceModifier.size(28.dp)
-                        .clickable(actionStartActivity(settingsIntent))
-                )
-                Spacer(modifier = GlanceModifier.width(4.dp))
-                Image(
-                    provider = ImageProvider(R.drawable.ic_w_prev),
-                    contentDescription = "이전달",
-                    modifier = GlanceModifier.size(28.dp)
+                // 설정 버튼 (터치 영역 44dp)
+                Box(
+                    modifier = GlanceModifier
+                        .size(44.dp)
+                        .clickable(actionStartActivity(settingsIntent)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        provider = ImageProvider(R.drawable.ic_w_settings),
+                        contentDescription = "설정",
+                        modifier = GlanceModifier.size(26.dp)
+                    )
+                }
+
+                // 이전달 버튼
+                Box(
+                    modifier = GlanceModifier
+                        .size(44.dp)
                         .clickable(
                             actionRunCallback<MonthChangeCallback>(
                                 actionParametersOf(MonthChangeCallback.deltaKey to -1)
                             )
-                        )
-                )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        provider = ImageProvider(R.drawable.ic_w_prev),
+                        contentDescription = "이전달",
+                        modifier = GlanceModifier.size(26.dp)
+                    )
+                }
+
+                // 년월 텍스트
                 Text(
                     text = "$year. ${month.toString().padStart(2, '0')}",
                     modifier = GlanceModifier.defaultWeight(),
                     style = TextStyle(
                         fontWeight = FontWeight.Bold,
-                        fontSize = headerSp,
-                        color = ColorProvider(day = textPrimary, night = textPrimary)
+                        fontSize   = headerSp,
+                        color      = ColorProvider(day = textPrimary, night = textPrimary)
                     )
                 )
-                Image(
-                    provider = ImageProvider(R.drawable.ic_w_next),
-                    contentDescription = "다음달",
-                    modifier = GlanceModifier.size(28.dp)
+
+                // 다음달 버튼
+                Box(
+                    modifier = GlanceModifier
+                        .size(44.dp)
                         .clickable(
                             actionRunCallback<MonthChangeCallback>(
                                 actionParametersOf(MonthChangeCallback.deltaKey to 1)
                             )
-                        )
-                )
-                Spacer(modifier = GlanceModifier.width(4.dp))
-                Image(
-                    provider = ImageProvider(R.drawable.ic_w_refresh),
-                    contentDescription = "새로고침",
-                    modifier = GlanceModifier.size(28.dp)
-                        .clickable(actionRunCallback<RefreshCallback>())
-                )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        provider = ImageProvider(R.drawable.ic_w_next),
+                        contentDescription = "다음달",
+                        modifier = GlanceModifier.size(26.dp)
+                    )
+                }
+
+                // 새로고침 버튼
+                Box(
+                    modifier = GlanceModifier
+                        .size(44.dp)
+                        .clickable(actionRunCallback<RefreshCallback>()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        provider = ImageProvider(R.drawable.ic_w_refresh),
+                        contentDescription = "새로고침",
+                        modifier = GlanceModifier.size(26.dp)
+                    )
+                }
             }
 
-            // ── 요일 헤더 ─────────────────────────────────────────
-            if (settings.showDivider) {
-                Spacer(modifier = GlanceModifier.fillMaxWidth().height(1.dp).background(dividerColor))
-            }
+            // ── 요일 헤더 ────────────────────────────────────────
+            if (settings.showDivider)
+                Spacer(modifier = GlanceModifier.fillMaxWidth().height(divH).background(dividerColor))
+
             Row(
-                modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)
+                modifier = GlanceModifier.fillMaxWidth().height(weekRowH)
             ) {
-                listOf("일", "월", "화", "수", "목", "금", "토").forEachIndexed { idx, label ->
+                listOf("일", "월", "화", "수", "목", "금", "토").forEachIndexed { idx, lbl ->
                     val c = when (idx) {
                         0    -> Color(0xFFC62828)
                         6    -> Color(0xFF1565C0)
                         else -> textSecondary
                     }
-                    Text(
-                        text = label,
-                        modifier = GlanceModifier.defaultWeight(),
-                        style = TextStyle(
-                            fontSize = weekDaySp,
-                            fontWeight = FontWeight.Bold,
-                            color = ColorProvider(day = c, night = c)
+                    Box(
+                        modifier = GlanceModifier.defaultWeight().fillMaxHeight(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text  = lbl,
+                            style = TextStyle(
+                                fontSize   = weekDaySp,
+                                fontWeight = FontWeight.Bold,
+                                color      = ColorProvider(day = c, night = c)
+                            )
                         )
-                    )
+                    }
                 }
             }
-            if (settings.showDivider) {
-                Spacer(modifier = GlanceModifier.fillMaxWidth().height(1.dp).background(dividerColor))
-            }
 
-            // ── 날짜 그리드 ───────────────────────────────────────
+            if (settings.showDivider)
+                Spacer(modifier = GlanceModifier.fillMaxWidth().height(divH).background(dividerColor))
+
+            // ── 달력 그리드 ──────────────────────────────────────
             var dayIndex = 0
             for (r in 0 until rows) {
-                Row(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                // 행 높이를 명시적으로 지정
+                Row(modifier = GlanceModifier.fillMaxWidth().height(rowH)) {
                     for (c in 0..6) {
-                        if (c > 0 && settings.showDivider) {
-                            Spacer(modifier = GlanceModifier.width(1.dp).fillMaxHeight().background(dividerColor))
-                        }
+                        if (c > 0 && settings.showDivider)
+                            Spacer(modifier = GlanceModifier.width(divH).fillMaxHeight().background(dividerColor))
 
                         val cellIndex = r * 7 + c
 
                         when {
-                            // ── 이전 달 ─
+                            // 이전 달
                             cellIndex < startPad -> {
-                                val d = prevMonthLastDay - startPad + cellIndex + 1
+                                val d  = prevMonthLastDay - startPad + cellIndex + 1
                                 val mm = prevMonth.toString().padStart(2, '0')
                                 val dd = d.toString().padStart(2, '0')
                                 Box(
                                     modifier = GlanceModifier
                                         .defaultWeight().fillMaxHeight()
-                                        .padding(2.dp),
+                                        .padding(horizontal = 2.dp, vertical = 2.dp),
                                     contentAlignment = Alignment.TopStart
                                 ) {
                                     Text(
-                                        text = "$mm.$dd",
+                                        text  = "$mm.$dd",
                                         style = TextStyle(
                                             fontSize = dateSp,
-                                            color = ColorProvider(day = textDim, night = textDim)
+                                            color    = ColorProvider(day = textDim, night = textDim)
                                         )
                                     )
                                 }
                             }
 
-                            // ── 현재 달 ─
+                            // 현재 달
                             dayIndex < days.size -> {
-                                val dayInfo     = days[dayIndex]
-                                val shift       = dayInfo.shiftType
-                                val isToday     = dayInfo.date == today
-                                val memos       = dayInfo.memos
+                                val dayInfo      = days[dayIndex]
+                                val shift        = dayInfo.shiftType
+                                val isToday      = dayInfo.date == today
+                                val memos        = dayInfo.memos
                                 val isHolidaySun = c == 0 || dayInfo.isHoliday
                                 val isSat        = c == 6
-
-                                val dateColor = when {
+                                val dateColor    = when {
                                     isHolidaySun -> Color(0xFFC62828)
                                     isSat        -> Color(0xFF1565C0)
                                     else         -> textPrimary
                                 }
-
-                                // 날짜 텍스트: 1일은 MM.01, 나머지는 일 번호
                                 val dayNum  = dayInfo.date.dayOfMonth
                                 val dateStr = if (dayNum == 1)
                                     "${month.toString().padStart(2, '0')}.01"
                                 else
                                     dayNum.toString()
-
-                                // 공휴일명 인라인
                                 val dateLabel = if (dayInfo.holidayName.isNotEmpty())
                                     "$dateStr ${dayInfo.holidayName}"
                                 else
@@ -271,7 +329,7 @@ private fun WidgetContent(
                                 Box(
                                     modifier = GlanceModifier
                                         .defaultWeight().fillMaxHeight()
-                                        .let { if (isToday) it.background(Color(0xFFE3F2FD)) else it }
+                                        .let { if (isToday) it.background(Color(0xFFBBDEFB)) else it }
                                         .clickable(actionStartActivity(confirmIntent))
                                 ) {
                                     Column(
@@ -280,7 +338,6 @@ private fun WidgetContent(
                                             .padding(horizontal = 2.dp, vertical = 2.dp),
                                         horizontalAlignment = Alignment.Start
                                     ) {
-                                        // 날짜 (+ 공휴일명)
                                         Text(
                                             text  = dateLabel,
                                             style = TextStyle(
@@ -291,7 +348,6 @@ private fun WidgetContent(
                                             maxLines = 1
                                         )
 
-                                        // 음력
                                         if (settings.showLunar && dayInfo.lunarDay.isNotEmpty()) {
                                             Text(
                                                 text  = dayInfo.lunarDay,
@@ -302,7 +358,6 @@ private fun WidgetContent(
                                             )
                                         }
 
-                                        // 근무 배지
                                         if (shift != null) {
                                             val shiftColor = Color(shift.colorHex)
                                             val badgeFg    = if (shift.isLightBadge) Color(0xFF212121) else Color.White
@@ -340,7 +395,6 @@ private fun WidgetContent(
                                             }
                                         }
 
-                                        // 메모 (최대 2개)
                                         memos.take(2).forEach { memo ->
                                             Box(
                                                 modifier = GlanceModifier
@@ -354,7 +408,10 @@ private fun WidgetContent(
                                                     text     = memo.title,
                                                     style    = TextStyle(
                                                         fontSize = memoSp,
-                                                        color    = ColorProvider(day = Color(0xFF212121), night = Color(0xFF212121))
+                                                        color    = ColorProvider(
+                                                            day   = Color(0xFF212121),
+                                                            night = Color(0xFF212121)
+                                                        )
                                                     ),
                                                     maxLines = 1
                                                 )
@@ -365,7 +422,7 @@ private fun WidgetContent(
                                 dayIndex++
                             }
 
-                            // ── 다음 달 ─
+                            // 다음 달
                             else -> {
                                 val d  = cellIndex - startPad - days.size + 1
                                 val mm = nextMonth.toString().padStart(2, '0')
@@ -373,14 +430,14 @@ private fun WidgetContent(
                                 Box(
                                     modifier = GlanceModifier
                                         .defaultWeight().fillMaxHeight()
-                                        .padding(2.dp),
+                                        .padding(horizontal = 2.dp, vertical = 2.dp),
                                     contentAlignment = Alignment.TopStart
                                 ) {
                                     Text(
-                                        text = "$mm.$dd",
+                                        text  = "$mm.$dd",
                                         style = TextStyle(
                                             fontSize = dateSp,
-                                            color = ColorProvider(day = textDim, night = textDim)
+                                            color    = ColorProvider(day = textDim, night = textDim)
                                         )
                                     )
                                 }
@@ -389,9 +446,8 @@ private fun WidgetContent(
                     }
                 }
 
-                if (r < rows - 1 && settings.showDivider) {
-                    Spacer(modifier = GlanceModifier.fillMaxWidth().height(1.dp).background(dividerColor))
-                }
+                if (r < rows - 1 && settings.showDivider)
+                    Spacer(modifier = GlanceModifier.fillMaxWidth().height(divH).background(dividerColor))
             }
         }
     }

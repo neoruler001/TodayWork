@@ -20,7 +20,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.todaywork.app.data.db.entity.AlarmSettingEntity
 import com.todaywork.app.data.model.ShiftType
 import com.todaywork.app.util.BackupManager
-import java.time.LocalDate
 
 @Composable
 fun SettingsScreen(
@@ -28,12 +27,6 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val today = LocalDate.now()
-
-    val icsLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { /* 결과 처리 불필요 */ }
-
     val backupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri -> uri?.let { viewModel.exportBackup(it) } }
@@ -94,53 +87,6 @@ fun SettingsScreen(
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
-                }
-            }
-
-            // ── 삼성 캘린더 내보내기 ──────────────────────────
-            SettingSection("캘린더 연동 (ICS 내보내기)") {
-                Text(
-                    text  = "ICS 파일을 내보내면 삼성 캘린더, 구글 캘린더 등에서 가져오기로 일정을 등록할 수 있습니다.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-                Spacer(Modifier.height(12.dp))
-
-                OutlinedButton(
-                    onClick = {
-                        viewModel.exportCurrentMonthIcs(today.year, today.monthValue) { intent ->
-                            intent?.let { icsLauncher.launch(it) }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.CalendarMonth, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("이번 달 ICS 내보내기 (${today.year}년 ${today.monthValue}월)")
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                OutlinedButton(
-                    onClick = {
-                        viewModel.exportYearIcs(today.year) { intent ->
-                            intent?.let { icsLauncher.launch(it) }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Download, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("올해 전체 ICS 내보내기 (${today.year}년)")
-                }
-
-                uiState.exportResult?.let { msg ->
-                    LaunchedEffect(msg) { viewModel.clearExportResult() }
-                    Text(
-                        text  = msg,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
                 }
             }
 
