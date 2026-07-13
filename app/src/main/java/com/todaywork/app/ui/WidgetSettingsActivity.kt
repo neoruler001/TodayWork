@@ -2,6 +2,7 @@ package com.todaywork.app.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.lifecycle.lifecycleScope
 import com.todaywork.app.data.datastore.WidgetPreferences
 import com.todaywork.app.data.datastore.WidgetSettings
 import com.todaywork.app.ui.theme.TodayWorkTheme
@@ -44,8 +46,19 @@ class WidgetSettingsActivity : ComponentActivity() {
         setContent {
             TodayWorkTheme {
                 WidgetSettingsScreen(
-                    prefs  = widgetPreferences,
-                    onBack = { finish() }
+                    prefs    = widgetPreferences,
+                    onSave   = { settings ->
+                        lifecycleScope.launch {
+                            widgetPreferences.save(settings)
+                            try {
+                                val manager = GlanceAppWidgetManager(this@WidgetSettingsActivity)
+                                val ids = manager.getGlanceIds(CalendarWidget::class.java)
+                                ids.forEach { CalendarWidget().update(this@WidgetSettingsActivity, it) }
+                            } catch (_: Exception) {}
+                            finish()
+                        }
+                    },
+                    onCancel = { finish() }
                 )
             }
         }
@@ -56,39 +69,52 @@ class WidgetSettingsActivity : ComponentActivity() {
 @Composable
 private fun WidgetSettingsScreen(
     prefs: WidgetPreferences,
-    onBack: () -> Unit
+    onSave: (WidgetSettings) -> Unit,
+    onCancel: () -> Unit
 ) {
-    val context = LocalContext.current
-    val scope   = rememberCoroutineScope()
     var settings by remember { mutableStateOf(WidgetSettings()) }
 
     LaunchedEffect(Unit) {
         settings = prefs.getSettings()
     }
 
-    fun save(updated: WidgetSettings) {
-        settings = updated
-        scope.launch {
-            prefs.save(updated)
-            // 설정 저장 즉시 위젯 갱신
-            try {
-                val manager = GlanceAppWidgetManager(context)
-                val ids = manager.getGlanceIds(CalendarWidget::class.java)
-                ids.forEach { CalendarWidget().update(context, it) }
-            } catch (_: Exception) {}
-        }
-    }
+    // 뒤로 가기 = 저장
+    BackHandler { onSave(settings) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("위젯 설정") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로")
+                    IconButton(onClick = { onSave(settings) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "저장하고 뒤로")
                     }
                 }
             )
+        },
+        bottomBar = {
+            Surface(shadowElevation = 4.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick  = onCancel,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("취소")
+                    }
+                    Button(
+                        onClick  = { onSave(settings) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("저장")
+                    }
+                }
+            }
         }
     ) { innerPadding ->
         Column(
@@ -109,10 +135,10 @@ private fun WidgetSettingsScreen(
                     // 배경 투명도
                     SettingRow(label = "배경 투명도") {
                         Slider(
-                            value = settings.bgAlpha,
-                            onValueChange = { save(settings.copy(bgAlpha = it)) },
-                            valueRange = 0f..1f,
-                            modifier = Modifier.fillMaxWidth()
+                            value         = settings.bgAlpha,
+                            onValueChange = { settings = settings.copy(bgAlpha = it) },
+                            valueRange    = 0f..1f,
+                            modifier      = Modifier.fillMaxWidth()
                         )
                     }
                     SettingDivider()
@@ -144,7 +170,7 @@ private fun WidgetSettingsScreen(
                                             color = if (settings.bgColor == key) MaterialTheme.colorScheme.primary else Color.LightGray,
                                             shape = RoundedCornerShape(6.dp)
                                         )
-                                        .clickable { save(settings.copy(bgColor = key)) }
+                                        .clickable { settings = settings.copy(bgColor = key) }
                                 )
                             }
                         }
@@ -153,11 +179,11 @@ private fun WidgetSettingsScreen(
 
                     // 글자 크기
                     SettingRowToggle2(
-                        label   = "글자 크기",
-                        option1 = "기본",
-                        option2 = "크게",
+                        label    = "글자 크기",
+                        option1  = "기본",
+                        option2  = "크게",
                         selected = if (settings.fontSizeLarge) 1 else 0,
-                        onSelect = { save(settings.copy(fontSizeLarge = it == 1)) }
+                        onSelect = { settings = settings.copy(fontSizeLarge = it == 1) }
                     )
                     SettingDivider()
 
@@ -167,7 +193,7 @@ private fun WidgetSettingsScreen(
                         option1  = "보이기",
                         option2  = "감추기",
                         selected = if (settings.showDivider) 0 else 1,
-                        onSelect = { save(settings.copy(showDivider = it == 0)) }
+                        onSelect = { settings = settings.copy(showDivider = it == 0) }
                     )
                     SettingDivider()
 
@@ -175,7 +201,7 @@ private fun WidgetSettingsScreen(
                     SettingRowToggle3(
                         label    = "메모 크기",
                         selected = settings.memoSize,
-                        onSelect = { save(settings.copy(memoSize = it)) }
+                        onSelect = { settings = settings.copy(memoSize = it) }
                     )
                     SettingDivider()
 
@@ -183,7 +209,7 @@ private fun WidgetSettingsScreen(
                     SettingRowToggle3(
                         label    = "날짜, 요일 크기",
                         selected = settings.dateSize,
-                        onSelect = { save(settings.copy(dateSize = it)) }
+                        onSelect = { settings = settings.copy(dateSize = it) }
                     )
                     SettingDivider()
 
@@ -191,7 +217,7 @@ private fun WidgetSettingsScreen(
                     SettingRowToggle3(
                         label    = "근무 크기",
                         selected = settings.workSize,
-                        onSelect = { save(settings.copy(workSize = it)) }
+                        onSelect = { settings = settings.copy(workSize = it) }
                     )
                     SettingDivider()
 
@@ -199,7 +225,7 @@ private fun WidgetSettingsScreen(
                     SettingRowSwitch(
                         label     = "메모 작성",
                         checked   = settings.memoWrite,
-                        onChecked = { save(settings.copy(memoWrite = it)) }
+                        onChecked = { settings = settings.copy(memoWrite = it) }
                     )
                     SettingDivider()
 
@@ -207,7 +233,7 @@ private fun WidgetSettingsScreen(
                     SettingRowSwitch(
                         label     = "음력 표시",
                         checked   = settings.showLunar,
-                        onChecked = { save(settings.copy(showLunar = it)) }
+                        onChecked = { settings = settings.copy(showLunar = it) }
                     )
                 }
             }
@@ -248,7 +274,7 @@ private fun SettingRowWithValue(
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier              = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment     = Alignment.CenterVertically
         ) {
@@ -263,7 +289,7 @@ private fun SettingRowWithValue(
 @Composable
 private fun SettingRowSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
     Row(
-        modifier = Modifier
+        modifier              = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -283,7 +309,7 @@ private fun SettingRowToggle2(
     onSelect: (Int) -> Unit
 ) {
     Row(
-        modifier = Modifier
+        modifier              = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -304,7 +330,7 @@ private fun SettingRowToggle3(
     onSelect: (Int) -> Unit
 ) {
     Row(
-        modifier = Modifier
+        modifier              = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,

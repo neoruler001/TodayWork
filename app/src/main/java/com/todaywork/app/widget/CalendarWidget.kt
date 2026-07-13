@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
@@ -36,17 +35,8 @@ import java.time.LocalDate
 
 class CalendarWidget : GlanceAppWidget() {
 
-    // Responsive: 여러 사이즈 미리 렌더링 → 구형 Android도 정상 표시
-    override val sizeMode = SizeMode.Responsive(
-        setOf(
-            DpSize(200.dp, 200.dp),
-            DpSize(200.dp, 320.dp),
-            DpSize(320.dp, 320.dp),
-            DpSize(320.dp, 450.dp),
-            DpSize(360.dp, 450.dp),
-            DpSize(360.dp, 600.dp),
-        )
-    )
+    // Exact: 실제 위젯 크기로 렌더링 → LocalSize.current = 실제 크기
+    override val sizeMode = SizeMode.Exact
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)
@@ -132,7 +122,7 @@ private fun WidgetContent(
     val headerRowH  = if (large) 40.dp else 36.dp
     val weekRowH    = if (large) 28.dp else 22.dp
     val divH        = if (settings.showDivider) 1.dp else 0.dp
-    val fixedH      = headerRowH + weekRowH + divH * (rows + 2).toFloat()
+    val fixedH      = headerRowH + weekRowH + divH * (rows + 1).toFloat()
     val calH        = size.height - fixedH - 12.dp  // 12dp = 위아래 padding
     val rowH        = if (rows > 0 && calH > 10.dp) (calH / rows).coerceIn(28.dp, 160.dp)
                       else 40.dp
