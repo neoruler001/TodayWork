@@ -94,7 +94,6 @@ private fun WidgetContent(
     prevMonth: Int,
     nextMonth: Int,
 ) {
-    // LocalSize: SizeMode.Responsive가 제공하는 실제 렌더링 크기
     val size = LocalSize.current
 
     val bgColorValue = when (settings.bgColor) {
@@ -231,6 +230,9 @@ private fun WidgetContent(
                 modifier = GlanceModifier.fillMaxWidth().height(weekRowH)
             ) {
                 listOf("일", "월", "화", "수", "목", "금", "토").forEachIndexed { idx, lbl ->
+                    // 그리드 열과 너비 일치: 구분선 동일하게 추가
+                    if (idx > 0 && settings.showDivider)
+                        Spacer(modifier = GlanceModifier.width(divH).fillMaxHeight().background(dividerColor))
                     val c = when (idx) {
                         0    -> Color(0xFFC62828)
                         6    -> Color(0xFF1565C0)
