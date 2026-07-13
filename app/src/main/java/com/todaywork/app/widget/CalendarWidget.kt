@@ -123,7 +123,7 @@ private fun WidgetContent(
     val divH        = if (settings.showDivider) 1.dp else 0.dp
     val fixedH      = headerRowH + weekRowH + divH * (rows + 1).toFloat()
     val calH        = size.height - fixedH - 12.dp  // 12dp = 위아래 padding
-    val rowH        = if (rows > 0 && calH > 10.dp) (calH / rows).coerceIn(28.dp, 160.dp)
+    val rowH        = if (rows > 0 && calH > 10.dp) (calH / rows).coerceAtLeast(28.dp)
                       else 40.dp
 
     val settingsIntent = Intent(context, WidgetSettingsActivity::class.java)
