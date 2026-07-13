@@ -13,7 +13,7 @@ import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.widgetDataStore by preferencesDataStore(name = "widget_prefs")
+val Context.widgetDataStore by preferencesDataStore(name = "widget_prefs")
 
 data class WidgetSettings(
     val bgAlpha: Float = 1.0f,
@@ -23,81 +23,81 @@ data class WidgetSettings(
     val memoSize: Int = 2,
     val dateSize: Int = 2,
     val workSize: Int = 2,
-    val fix6Weeks: Boolean = false,
     val memoWrite: Boolean = false,
-    val showOvertime: Boolean = false,
     val showLunar: Boolean = false,
-    val highlightChanged: Boolean = false,
     val displayYear: Int = LocalDate.now().year,
     val displayMonth: Int = LocalDate.now().monthValue,
 )
 
+object WidgetPrefKeys {
+    val BG_ALPHA        = floatPreferencesKey("w_bg_alpha")
+    val BG_COLOR        = stringPreferencesKey("w_bg_color")
+    val FONT_SIZE_LARGE = booleanPreferencesKey("w_font_large")
+    val SHOW_DIVIDER    = booleanPreferencesKey("w_show_divider")
+    val MEMO_SIZE       = intPreferencesKey("w_memo_size")
+    val DATE_SIZE       = intPreferencesKey("w_date_size")
+    val WORK_SIZE       = intPreferencesKey("w_work_size")
+    val MEMO_WRITE      = booleanPreferencesKey("w_memo_write")
+    val SHOW_LUNAR      = booleanPreferencesKey("w_lunar")
+    val DISPLAY_YEAR    = intPreferencesKey("w_year")
+    val DISPLAY_MONTH   = intPreferencesKey("w_month")
+}
+
+fun Preferences.toWidgetSettings() = WidgetSettings(
+    bgAlpha       = this[WidgetPrefKeys.BG_ALPHA]        ?: 1.0f,
+    bgColor       = this[WidgetPrefKeys.BG_COLOR]        ?: "white",
+    fontSizeLarge = this[WidgetPrefKeys.FONT_SIZE_LARGE] ?: false,
+    showDivider   = this[WidgetPrefKeys.SHOW_DIVIDER]    ?: true,
+    memoSize      = this[WidgetPrefKeys.MEMO_SIZE]       ?: 2,
+    dateSize      = this[WidgetPrefKeys.DATE_SIZE]       ?: 2,
+    workSize      = this[WidgetPrefKeys.WORK_SIZE]       ?: 2,
+    memoWrite     = this[WidgetPrefKeys.MEMO_WRITE]      ?: false,
+    showLunar     = this[WidgetPrefKeys.SHOW_LUNAR]      ?: false,
+    displayYear   = this[WidgetPrefKeys.DISPLAY_YEAR]    ?: LocalDate.now().year,
+    displayMonth  = this[WidgetPrefKeys.DISPLAY_MONTH]   ?: LocalDate.now().monthValue,
+)
+
+suspend fun Preferences.MutationScope.applyWidgetSettings(s: WidgetSettings) {
+    this[WidgetPrefKeys.BG_ALPHA]        = s.bgAlpha
+    this[WidgetPrefKeys.BG_COLOR]        = s.bgColor
+    this[WidgetPrefKeys.FONT_SIZE_LARGE] = s.fontSizeLarge
+    this[WidgetPrefKeys.SHOW_DIVIDER]    = s.showDivider
+    this[WidgetPrefKeys.MEMO_SIZE]       = s.memoSize
+    this[WidgetPrefKeys.DATE_SIZE]       = s.dateSize
+    this[WidgetPrefKeys.WORK_SIZE]       = s.workSize
+    this[WidgetPrefKeys.MEMO_WRITE]      = s.memoWrite
+    this[WidgetPrefKeys.SHOW_LUNAR]      = s.showLunar
+    this[WidgetPrefKeys.DISPLAY_YEAR]    = s.displayYear
+    this[WidgetPrefKeys.DISPLAY_MONTH]   = s.displayMonth
+}
+
+// Hilt 불필요한 곳(ActionCallback 등)에서 직접 접근
+suspend fun Context.getWidgetSettings(): WidgetSettings =
+    widgetDataStore.data.first().toWidgetSettings()
+
+suspend fun Context.saveWidgetSettings(settings: WidgetSettings) {
+    widgetDataStore.edit { it.applyWidgetSettings(settings) }
+}
+
+suspend fun Context.shiftWidgetMonth(delta: Int) {
+    widgetDataStore.edit { p ->
+        val year  = p[WidgetPrefKeys.DISPLAY_YEAR]  ?: LocalDate.now().year
+        val month = p[WidgetPrefKeys.DISPLAY_MONTH] ?: LocalDate.now().monthValue
+        val next  = LocalDate.of(year, month, 1).plusMonths(delta.toLong())
+        p[WidgetPrefKeys.DISPLAY_YEAR]  = next.year
+        p[WidgetPrefKeys.DISPLAY_MONTH] = next.monthValue
+    }
+}
+
+// ── Hilt 주입용 싱글톤 (WidgetSettingsActivity에서 사용) ─────────
 @Singleton
 class WidgetPreferences @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val store = context.widgetDataStore
-
-    object Keys {
-        val BG_ALPHA = floatPreferencesKey("w_bg_alpha")
-        val BG_COLOR = stringPreferencesKey("w_bg_color")
-        val FONT_SIZE_LARGE = booleanPreferencesKey("w_font_large")
-        val SHOW_DIVIDER = booleanPreferencesKey("w_show_divider")
-        val MEMO_SIZE = intPreferencesKey("w_memo_size")
-        val DATE_SIZE = intPreferencesKey("w_date_size")
-        val WORK_SIZE = intPreferencesKey("w_work_size")
-        val FIX_6_WEEKS = booleanPreferencesKey("w_fix6")
-        val MEMO_WRITE = booleanPreferencesKey("w_memo_write")
-        val SHOW_OVERTIME = booleanPreferencesKey("w_overtime")
-        val SHOW_LUNAR = booleanPreferencesKey("w_lunar")
-        val HIGHLIGHT_CHANGED = booleanPreferencesKey("w_highlight")
-        val DISPLAY_YEAR = intPreferencesKey("w_year")
-        val DISPLAY_MONTH = intPreferencesKey("w_month")
-    }
-
-    val settingsFlow: Flow<WidgetSettings> = store.data
+    val settingsFlow: Flow<WidgetSettings> = context.widgetDataStore.data
         .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
-        .map { it.toSettings() }
+        .map { it.toWidgetSettings() }
 
-    suspend fun getSettings(): WidgetSettings = settingsFlow.first()
-
-    suspend fun save(settings: WidgetSettings) {
-        store.edit { p ->
-            p[Keys.BG_ALPHA] = settings.bgAlpha
-            p[Keys.BG_COLOR] = settings.bgColor
-            p[Keys.FONT_SIZE_LARGE] = settings.fontSizeLarge
-            p[Keys.SHOW_DIVIDER] = settings.showDivider
-            p[Keys.MEMO_SIZE] = settings.memoSize
-            p[Keys.DATE_SIZE] = settings.dateSize
-            p[Keys.WORK_SIZE] = settings.workSize
-            p[Keys.FIX_6_WEEKS] = settings.fix6Weeks
-            p[Keys.MEMO_WRITE] = settings.memoWrite
-            p[Keys.SHOW_OVERTIME] = settings.showOvertime
-            p[Keys.SHOW_LUNAR] = settings.showLunar
-            p[Keys.HIGHLIGHT_CHANGED] = settings.highlightChanged
-            p[Keys.DISPLAY_YEAR] = settings.displayYear
-            p[Keys.DISPLAY_MONTH] = settings.displayMonth
-        }
-    }
-
-    suspend fun update(block: WidgetSettings.() -> WidgetSettings) {
-        save(getSettings().block())
-    }
-
-    private fun Preferences.toSettings() = WidgetSettings(
-        bgAlpha = this[Keys.BG_ALPHA] ?: 1.0f,
-        bgColor = this[Keys.BG_COLOR] ?: "white",
-        fontSizeLarge = this[Keys.FONT_SIZE_LARGE] ?: false,
-        showDivider = this[Keys.SHOW_DIVIDER] ?: true,
-        memoSize = this[Keys.MEMO_SIZE] ?: 2,
-        dateSize = this[Keys.DATE_SIZE] ?: 2,
-        workSize = this[Keys.WORK_SIZE] ?: 2,
-        fix6Weeks = this[Keys.FIX_6_WEEKS] ?: false,
-        memoWrite = this[Keys.MEMO_WRITE] ?: false,
-        showOvertime = this[Keys.SHOW_OVERTIME] ?: false,
-        showLunar = this[Keys.SHOW_LUNAR] ?: false,
-        highlightChanged = this[Keys.HIGHLIGHT_CHANGED] ?: false,
-        displayYear = this[Keys.DISPLAY_YEAR] ?: LocalDate.now().year,
-        displayMonth = this[Keys.DISPLAY_MONTH] ?: LocalDate.now().monthValue,
-    )
+    suspend fun getSettings(): WidgetSettings = context.getWidgetSettings()
+    suspend fun save(settings: WidgetSettings) = context.saveWidgetSettings(settings)
 }

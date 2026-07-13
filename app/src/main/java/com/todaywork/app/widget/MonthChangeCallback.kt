@@ -4,9 +4,7 @@ import android.content.Context
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
-import com.todaywork.app.data.datastore.WidgetPreferences
-import dagger.hilt.android.EntryPointAccessors
-import java.time.LocalDate
+import com.todaywork.app.data.datastore.shiftWidgetMonth
 
 class MonthChangeCallback : ActionCallback {
 
@@ -16,15 +14,7 @@ class MonthChangeCallback : ActionCallback {
         parameters: ActionParameters
     ) {
         val delta = parameters[deltaKey] ?: return
-        val entryPoint = EntryPointAccessors.fromApplication(
-            context,
-            CalendarWidget.WidgetEntryPoint::class.java
-        )
-        val prefs = entryPoint.widgetPreferences()
-        prefs.update {
-            val date = LocalDate.of(displayYear, displayMonth, 1).plusMonths(delta.toLong())
-            copy(displayYear = date.year, displayMonth = date.monthValue)
-        }
+        context.shiftWidgetMonth(delta)
         CalendarWidget().update(context, glanceId)
     }
 
